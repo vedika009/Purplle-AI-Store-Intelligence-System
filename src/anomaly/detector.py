@@ -44,9 +44,10 @@ class AnomalyDetector:
                 
         return None
 
-    def check_dead_zones(self, store_id: str, current_time: datetime, known_zones: List[str]) -> List[Anomaly]:
+    def check_dead_zones(self, store_id: str, current_time: datetime, known_zones: List[str]):
         """Periodically check for zones that haven't seen activity."""
         anomalies = []
+        resolved = []
         if store_id not in self.zone_last_seen:
             self.zone_last_seen[store_id] = {}
             
@@ -70,19 +71,21 @@ class AnomalyDetector:
                     suggested_action=f"Check if {zone} displays need restocking or store layout requires adjustment.",
                     zone_id=zone
                 ))
+            else:
+                resolved.append(zone)
                 
-        return anomalies
+        return anomalies, resolved
         
-    def check_conversion_drop(self, store_id: str, current_time: datetime, current_cr: float, avg_7d_cr: float) -> Optional[Anomaly]:
+    def check_conversion_drop(self, store_id: str, current_time: datetime, current_cr: float, avg_7d_cr: float):
         """Check if current conversion rate has dropped significantly vs 7-day average."""
         # e.g., if CR is >20% lower than average
         if avg_7d_cr == 0:
-            return None
+            return None, True # Resolved/no drop
             
         drop_percentage = ((avg_7d_cr - current_cr) / avg_7d_cr) * 100
         
         if drop_percentage > 20.0:
-            return Anomaly(
+            anomaly = Anomaly(
                 id=str(uuid.uuid4()),
                 store_id=store_id,
                 anomaly_type=AnomalyType.CONVERSION_DROP,
@@ -91,4 +94,5 @@ class AnomalyDetector:
                 description=f"Conversion rate dropped by {drop_percentage:.1f}% compared to 7-day average.",
                 suggested_action="Investigate POS system uptime, staff availability, or immediate queue bottlenecks."
             )
-        return None
+            return anomaly, False
+        return None, True

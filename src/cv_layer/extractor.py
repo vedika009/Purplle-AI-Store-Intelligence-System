@@ -18,6 +18,7 @@ class VisitorState:
         self.has_exited: bool = False
         self.session_seq: int = 1
         self.last_seen_time: Optional[datetime] = None
+        self.last_dwell_emit_time: Optional[datetime] = None
 
 class EventExtractor:
     def __init__(self, store_id: str, camera_id: str, reid_manager: ReIDManager, zone_manager: ZoneManager, pos_correlator: Optional[POSCorrelator] = None):
@@ -106,6 +107,10 @@ class EventExtractor:
             
             zone_id = self.zone_manager.get_zone(x_center, y_bottom)
             
+            # Auto-mark staff if seen in STAFF_ONLY zone
+            if zone_id == "STAFF_ONLY" or (zone_id and "staff" in zone_id.lower()):
+                self.reid_manager.mark_staff(track_id)
+            
             if zone_id == "BILLING":
                 current_queue_depth += 1
 
@@ -119,7 +124,7 @@ class EventExtractor:
                     emitted_events.append(self._create_event(EventType.ENTRY, visitor_id, frame_timestamp, confidence))
                 state.has_entered = True
 
-            # Handle ZONE transitions
+            # Handle ZONE transitions and ZONE_DWELL
             if zone_id != state.current_zone:
                 # Exit previous zone
                 if state.current_zone is not None:
@@ -140,14 +145,64 @@ class EventExtractor:
                 # Enter new zone
                 state.current_zone = zone_id
                 state.zone_entry_time = frame_timestamp
+                state.last_dwell_emit_time = frame_timestamp
                 
                 if zone_id is not None:
                     if zone_id == "BILLING":
                         emitted_events.append(self._create_event(EventType.BILLING_QUEUE_JOIN, visitor_id, frame_timestamp, confidence, zone_id, queue_depth=current_queue_depth))
                     else:
                         emitted_events.append(self._create_event(EventType.ZONE_ENTER, visitor_id, frame_timestamp, confidence, zone_id))
+            else:
+                # Continuing in the same zone
+                if zone_id is not None:
+                    if state.last_dwell_emit_time is None:
+                        state.last_dwell_emit_time = state.zone_entry_time
+                    dwell_since_last_emit = (frame_timestamp - state.last_dwell_emit_time).total_seconds()
+                    if dwell_since_last_emit >= 30.0:
+                        total_dwell = int((frame_timestamp - state.zone_entry_time).total_seconds() * 1000)
+                        emitted_events.append(self._create_event(
+                            EventType.ZONE_DWELL,
+                            visitor_id,
+                            frame_timestamp,
+                            confidence,
+                            zone_id,
+                            dwell_ms=total_dwell
+                        ))
+                        state.last_dwell_emit_time = frame_timestamp
 
-        # Handle EXIT logic (simplified: if not seen for X seconds, consider exited)
-        # In a real implementation, you'd check bounds crossing.
+        # Handle EXIT logic (if not seen for exit_timeout, consider exited)
+        from datetime import timedelta
+        exit_timeout = timedelta(seconds=10)
+        
+        for visitor_id, state in list(self.visitor_states.items()):
+            if state.has_entered and not state.has_exited:
+                if frame_timestamp - state.last_seen_time > exit_timeout:
+                    # 1. Close current zone dwell
+                    if state.current_zone is not None:
+                        dwell = int((state.last_seen_time - state.zone_entry_time).total_seconds() * 1000)
+                        
+                        if state.current_zone == "BILLING":
+                            abandoned = True
+                            if self.pos_correlator and self.pos_correlator.check_correlation(self.store_id, state.last_seen_time):
+                                abandoned = False
+                                
+                            if abandoned:
+                                emitted_events.append(self._create_event(EventType.BILLING_QUEUE_ABANDON, visitor_id, state.last_seen_time, 0.8, state.current_zone, dwell))
+                            else:
+                                emitted_events.append(self._create_event(EventType.ZONE_EXIT, visitor_id, state.last_seen_time, 0.8, state.current_zone, dwell))
+                        else:
+                            emitted_events.append(self._create_event(EventType.ZONE_EXIT, visitor_id, state.last_seen_time, 0.8, state.current_zone, dwell))
+                        
+                        state.current_zone = None
+                        
+                    # 2. Emit EXIT event
+                    emitted_events.append(self._create_event(
+                        EventType.EXIT, 
+                        visitor_id, 
+                        state.last_seen_time, 
+                        confidence=0.8
+                    ))
+                    state.has_exited = True
+                    state.has_entered = False
         
         return emitted_events

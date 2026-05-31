@@ -96,3 +96,48 @@ def test_anomalies_endpoint():
     assert "active_anomalies" in data
     assert len(data["active_anomalies"]) >= 1
     assert data["active_anomalies"][0]["anomaly_type"] == "QUEUE_SPIKE"
+
+def test_api_dwell_per_zone():
+    response = client.get("/stores/store_test/metrics")
+    assert response.status_code == 200
+    data = response.json()
+    assert "avg_dwell_per_zone" in data
+    assert isinstance(data["avg_dwell_per_zone"], dict)
+
+def test_api_health_per_store():
+    response = client.get("/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert "stores" in data
+    assert "store_test" in data["stores"]
+    assert "last_event_timestamp" in data["stores"]["store_test"]
+
+def test_api_historical_date_filter():
+    # Ingest a historical event (April 10, 2026)
+    hist_time = datetime(2026, 4, 10, 15, 0, 0, tzinfo=timezone.utc)
+    hist_event = {
+        "event_id": str(uuid.uuid4()),
+        "store_id": "store_historical",
+        "camera_id": "cam_1",
+        "visitor_id": "vis_hist_1",
+        "event_type": EventType.ENTRY.value,
+        "timestamp": hist_time.isoformat(),
+        "dwell_ms": 0,
+        "is_staff": False,
+        "confidence": 0.95,
+        "metadata": {
+            "session_seq": 1
+        }
+    }
+    
+    # Ingest event
+    ingest_resp = client.post("/events/ingest", json=[hist_event])
+    assert ingest_resp.status_code == 200
+    assert ingest_resp.json()["inserted"] == 1
+    
+    # Query metrics for store_historical
+    # It should correctly identify April 10, 2026 as the latest date and return 1 visitor
+    metrics_resp = client.get("/stores/store_historical/metrics")
+    assert metrics_resp.status_code == 200
+    metrics_data = metrics_resp.json()
+    assert metrics_data["unique_visitors_today"] == 1

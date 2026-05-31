@@ -53,31 +53,34 @@ def test_dead_zone(detector, base_time):
     detector.process_event(event)
     
     # Check 45 mins later -> should be dead zone
-    anomalies = detector.check_dead_zones("store_1", base_time, ["MAKEUP", "SKINCARE"])
+    anomalies, resolved = detector.check_dead_zones("store_1", base_time, ["MAKEUP", "SKINCARE"])
     assert len(anomalies) == 1
     assert anomalies[0].zone_id == "MAKEUP"
     assert anomalies[0].anomaly_type == AnomalyType.DEAD_ZONE
     assert anomalies[0].severity == Severity.INFO # < 60 mins
     
     # Check 65 mins later -> WARN
-    anomalies_warn = detector.check_dead_zones("store_1", base_time + timedelta(minutes=20), ["MAKEUP"])
+    anomalies_warn, resolved_warn = detector.check_dead_zones("store_1", base_time + timedelta(minutes=20), ["MAKEUP"])
     assert anomalies_warn[0].severity == Severity.WARN
 
 def test_conversion_drop(detector, base_time):
     # No drop
-    anomaly = detector.check_conversion_drop("store_1", base_time, current_cr=0.15, avg_7d_cr=0.15)
+    anomaly, resolved = detector.check_conversion_drop("store_1", base_time, current_cr=0.15, avg_7d_cr=0.15)
     assert anomaly is None
+    assert resolved is True
     
     # 25% drop (0.20 to 0.15)
-    anomaly_warn = detector.check_conversion_drop("store_1", base_time, current_cr=0.15, avg_7d_cr=0.20)
+    anomaly_warn, resolved_warn = detector.check_conversion_drop("store_1", base_time, current_cr=0.15, avg_7d_cr=0.20)
     assert anomaly_warn is not None
     assert anomaly_warn.anomaly_type == AnomalyType.CONVERSION_DROP
     assert anomaly_warn.severity == Severity.WARN
+    assert resolved_warn is False
     
     # 50% drop (0.20 to 0.10)
-    anomaly_crit = detector.check_conversion_drop("store_1", base_time, current_cr=0.10, avg_7d_cr=0.20)
+    anomaly_crit, resolved_crit = detector.check_conversion_drop("store_1", base_time, current_cr=0.10, avg_7d_cr=0.20)
     assert anomaly_crit.severity == Severity.CRITICAL
     
 def test_zero_avg_cr(detector, base_time):
-    anomaly = detector.check_conversion_drop("store_1", base_time, current_cr=0.0, avg_7d_cr=0.0)
+    anomaly, resolved = detector.check_conversion_drop("store_1", base_time, current_cr=0.0, avg_7d_cr=0.0)
     assert anomaly is None
+    assert resolved is True

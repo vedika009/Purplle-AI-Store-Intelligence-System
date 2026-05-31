@@ -29,7 +29,7 @@ async def dashboard():
 
 # Initialize shared components
 storage = StorageEngine("store_intelligence.db")
-anomaly_detector = AnomalyDetector()
+anomaly_detector = AnomalyDetector(queue_threshold=5)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -47,26 +47,40 @@ async def log_requests(request: Request, call_next):
 @app.get("/health")
 def health_check():
     try:
-        # Simple query to test DB
-        last_event = storage.get_last_event_time()
+        last_events = storage.get_last_event_time_per_store()
         status = "healthy"
         lag_warning = None
+        stores_status = {}
         
-        if last_event:
-            # Check if lag is > 5 minutes
-            lag = (datetime.now(timezone.utc) - last_event).total_seconds()
-            if lag > 300: 
+        now_utc = datetime.now(timezone.utc)
+        
+        for store_id, last_event in last_events.items():
+            if last_event.tzinfo is None:
+                last_event = last_event.replace(tzinfo=timezone.utc)
+            lag = (now_utc - last_event).total_seconds()
+            
+            store_status = "healthy"
+            store_warning = None
+            if lag > 300:
+                store_status = "degraded"
+                store_warning = "STALE_FEED"
                 status = "degraded"
                 lag_warning = "STALE_FEED"
+                
+            stores_status[store_id] = {
+                "status": store_status,
+                "warning": store_warning,
+                "last_event_timestamp": last_event.isoformat(),
+                "lag_seconds": lag
+            }
                 
         return {
             "status": status,
             "warning": lag_warning,
-            "last_event_timestamp": last_event
+            "stores": stores_status
         }
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        # Graceful degradation (HTTP 503 on DB down, no raw stack traces)
         raise HTTPException(status_code=503, detail="Service Unavailable: Database connection failed")
 
 @app.post("/events/ingest")
@@ -76,10 +90,12 @@ def ingest_events(events: List[EventSchema]):
         for event in events:
             anomaly = anomaly_detector.process_event(event)
             if anomaly:
+                logger.info(f"Anomaly detected: {anomaly.anomaly_type.value} | Store: {anomaly.store_id} | Zone: {anomaly.zone_id} | Depth: {anomaly.description}")
                 storage.insert_anomaly(anomaly)
                 
         # 2. Insert to storage (idempotent, handles partial success natively by ignoring duplicates)
         inserted = storage.insert_events(events)
+        logger.info(f"Ingested {len(events)} events (inserted {inserted} new events)")
         
         return {"status": "success", "inserted": inserted, "received": len(events)}
     except Exception as e:
@@ -113,6 +129,35 @@ def get_heatmap(store_id: str):
 @app.get("/stores/{store_id}/anomalies")
 def get_anomalies(store_id: str):
     try:
+        # Run active evaluations for dead zones and conversion drops
+        latest_time = storage.get_last_event_time(store_id)
+        if latest_time:
+            if latest_time.tzinfo is None:
+                latest_time = latest_time.replace(tzinfo=timezone.utc)
+            # 1. Check dead zones
+            known_zones = storage.get_known_zones(store_id)
+            dead_zone_anomalies, resolved_zones = anomaly_detector.check_dead_zones(
+                store_id, latest_time, known_zones
+            )
+            # Resolve zones that are active again
+            storage.resolve_dead_zones(store_id, resolved_zones)
+            # Insert any newly detected dead zone anomalies
+            for anomaly in dead_zone_anomalies:
+                storage.insert_anomaly(anomaly)
+                
+            # 2. Check conversion drops
+            metrics = storage.get_metrics(store_id)
+            current_cr = metrics.get("conversion_rate", 0.0)
+            avg_7d_cr = storage.get_historical_average_cr(store_id, latest_time)
+            
+            cr_anomaly, cr_resolved = anomaly_detector.check_conversion_drop(
+                store_id, latest_time, current_cr, avg_7d_cr
+            )
+            if cr_resolved:
+                storage.resolve_conversion_drop(store_id)
+            elif cr_anomaly:
+                storage.insert_anomaly(cr_anomaly)
+
         return {
             "store_id": store_id, 
             "active_anomalies": storage.get_active_anomalies(store_id)

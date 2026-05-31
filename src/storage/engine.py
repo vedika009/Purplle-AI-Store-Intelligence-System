@@ -91,20 +91,90 @@ class StorageEngine:
                 params.append(store_id)
             row = conn.execute(query, params).fetchone()
             if row and row['last_time']:
-                return datetime.fromisoformat(row['last_time'])
+                try:
+                    return datetime.fromisoformat(row['last_time'])
+                except ValueError:
+                    # Strip offset if exists or fallback
+                    return datetime.fromisoformat(row['last_time'].replace('Z', '+00:00'))
         return None
 
-    def get_metrics(self, store_id: str) -> Dict[str, Any]:
-        """Compute core metrics (excluding staff)."""
+    def _get_latest_event_date(self, conn, store_id: str) -> str:
+        """Returns the date of the latest event in the store, formatted as YYYY-MM-DD. Defaults to today's date."""
+        row = conn.execute(
+            "SELECT date(MAX(timestamp)) as latest_date FROM events WHERE store_id = ?", 
+            (store_id,)
+        ).fetchone()
+        if row and row['latest_date']:
+            return row['latest_date']
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    def get_known_zones(self, store_id: str) -> List[str]:
         with self._get_conn() as conn:
-            # 1. Unique visitors today (assuming UTC for simplicity in this demo)
-            # Better approximation: rolling 24h or current date string match
+            rows = conn.execute(
+                "SELECT DISTINCT zone_id FROM events WHERE store_id = ? AND zone_id IS NOT NULL",
+                (store_id,)
+            ).fetchall()
+            return [row['zone_id'] for row in rows]
+            
+    def get_historical_average_cr(self, store_id: str, current_time: datetime) -> float:
+        """Computes the overall conversion rate in the 7 days prior to current_time."""
+        from datetime import timedelta
+        with self._get_conn() as conn:
+            end_date = (current_time - timedelta(days=1)).strftime("%Y-%m-%d")
+            start_date = (current_time - timedelta(days=7)).strftime("%Y-%m-%d")
+            
             unique_v = conn.execute('''
                 SELECT COUNT(DISTINCT visitor_id) as count 
                 FROM events 
                 WHERE store_id = ? AND is_staff = 0 
-                  AND date(timestamp) = date('now')
-            ''', (store_id,)).fetchone()['count']
+                  AND date(timestamp) BETWEEN ? AND ?
+            ''', (store_id, start_date, end_date)).fetchone()['count']
+            
+            if not unique_v or unique_v == 0:
+                return 0.0
+                
+            purchases = conn.execute('''
+                SELECT COUNT(DISTINCT visitor_id) as c 
+                FROM events 
+                WHERE store_id = ? AND is_staff = 0 AND event_type = 'ZONE_EXIT' AND zone_id = 'BILLING'
+                  AND date(timestamp) BETWEEN ? AND ?
+            ''', (store_id, start_date, end_date)).fetchone()['c']
+            
+            return (purchases / unique_v) if unique_v > 0 else 0.0
+
+    def resolve_dead_zones(self, store_id: str, resolved_zones: List[str]) -> None:
+        if not resolved_zones:
+            return
+        with self._get_conn() as conn:
+            placeholders = ",".join("?" for _ in resolved_zones)
+            conn.execute(f'''
+                UPDATE anomalies 
+                SET active = 0 
+                WHERE store_id = ? AND anomaly_type = 'DEAD_ZONE' AND active = 1 AND zone_id IN ({placeholders})
+            ''', [store_id] + resolved_zones)
+            conn.commit()
+            
+    def resolve_conversion_drop(self, store_id: str) -> None:
+        with self._get_conn() as conn:
+            conn.execute('''
+                UPDATE anomalies 
+                SET active = 0 
+                WHERE store_id = ? AND anomaly_type = 'CONVERSION_DROP' AND active = 1
+            ''', (store_id,))
+            conn.commit()
+
+    def get_metrics(self, store_id: str) -> Dict[str, Any]:
+        """Compute core metrics (excluding staff)."""
+        with self._get_conn() as conn:
+            latest_date = self._get_latest_event_date(conn, store_id)
+
+            # 1. Unique visitors today (using latest event date)
+            unique_v = conn.execute('''
+                SELECT COUNT(DISTINCT visitor_id) as count 
+                FROM events 
+                WHERE store_id = ? AND is_staff = 0 
+                  AND date(timestamp) = ?
+            ''', (store_id, latest_date)).fetchone()['count']
             
             # 2. Avg dwell
             avg_dwell = conn.execute('''
@@ -112,8 +182,19 @@ class StorageEngine:
                 FROM events 
                 WHERE store_id = ? AND is_staff = 0 
                   AND event_type IN ('ZONE_EXIT', 'BILLING_QUEUE_ABANDON')
-                  AND date(timestamp) = date('now')
-            ''', (store_id,)).fetchone()['avg_dwell']
+                  AND date(timestamp) = ?
+            ''', (store_id, latest_date)).fetchone()['avg_dwell']
+
+            # Avg dwell per zone
+            dwell_per_zone_rows = conn.execute('''
+                SELECT zone_id, AVG(dwell_ms) as avg_dwell 
+                FROM events 
+                WHERE store_id = ? AND is_staff = 0 AND zone_id IS NOT NULL
+                  AND event_type IN ('ZONE_EXIT', 'BILLING_QUEUE_ABANDON')
+                  AND date(timestamp) = ?
+                GROUP BY zone_id
+            ''', (store_id, latest_date)).fetchall()
+            avg_dwell_per_zone = {row['zone_id']: row['avg_dwell'] for row in dwell_per_zone_rows}
             
             # 3. Queue Depth (Current/Latest)
             q_depth = conn.execute('''
@@ -129,23 +210,23 @@ class StorageEngine:
                 SELECT COUNT(DISTINCT visitor_id) as c 
                 FROM events 
                 WHERE store_id = ? AND is_staff = 0 AND event_type = 'BILLING_QUEUE_JOIN'
-                  AND date(timestamp) = date('now')
-            ''', (store_id,)).fetchone()['c']
+                  AND date(timestamp) = ?
+            ''', (store_id, latest_date)).fetchone()['c']
             
             abandons = conn.execute('''
                 SELECT COUNT(DISTINCT visitor_id) as c 
                 FROM events 
                 WHERE store_id = ? AND is_staff = 0 AND event_type = 'BILLING_QUEUE_ABANDON'
-                  AND date(timestamp) = date('now')
-            ''', (store_id,)).fetchone()['c']
+                  AND date(timestamp) = ?
+            ''', (store_id, latest_date)).fetchone()['c']
             
             # Converted = people who exited BILLING successfully
             purchases = conn.execute('''
                 SELECT COUNT(DISTINCT visitor_id) as c 
                 FROM events 
                 WHERE store_id = ? AND is_staff = 0 AND event_type = 'ZONE_EXIT' AND zone_id = 'BILLING'
-                  AND date(timestamp) = date('now')
-            ''', (store_id,)).fetchone()['c']
+                  AND date(timestamp) = ?
+            ''', (store_id, latest_date)).fetchone()['c']
 
             cr = (purchases / unique_v) if unique_v > 0 else 0.0
             abandon_rate = (abandons / joins) if joins > 0 else 0.0
@@ -154,6 +235,7 @@ class StorageEngine:
                 "unique_visitors_today": unique_v,
                 "conversion_rate": cr,
                 "avg_dwell_ms": avg_dwell or 0.0,
+                "avg_dwell_per_zone": avg_dwell_per_zone,
                 "current_queue_depth": q_depth_val,
                 "abandonment_rate": abandon_rate
             }
@@ -161,33 +243,35 @@ class StorageEngine:
     def get_funnel(self, store_id: str) -> Dict[str, Any]:
         """Compute the conversion funnel for the store today."""
         with self._get_conn() as conn:
+            latest_date = self._get_latest_event_date(conn, store_id)
+
             entered = conn.execute('''
                 SELECT COUNT(DISTINCT visitor_id) as c 
                 FROM events 
-                WHERE store_id = ? AND is_staff = 0 AND event_type = 'ENTRY'
-                  AND date(timestamp) = date('now')
-            ''', (store_id,)).fetchone()['c']
+                WHERE store_id = ? AND is_staff = 0 AND event_type IN ('ENTRY', 'REENTRY')
+                  AND date(timestamp) = ?
+            ''', (store_id, latest_date)).fetchone()['c']
             
             browsed = conn.execute('''
                 SELECT COUNT(DISTINCT visitor_id) as c 
                 FROM events 
                 WHERE store_id = ? AND is_staff = 0 AND event_type = 'ZONE_ENTER' AND zone_id != 'BILLING'
-                  AND date(timestamp) = date('now')
-            ''', (store_id,)).fetchone()['c']
+                  AND date(timestamp) = ?
+            ''', (store_id, latest_date)).fetchone()['c']
             
             queued = conn.execute('''
                 SELECT COUNT(DISTINCT visitor_id) as c 
                 FROM events 
                 WHERE store_id = ? AND is_staff = 0 AND event_type = 'BILLING_QUEUE_JOIN'
-                  AND date(timestamp) = date('now')
-            ''', (store_id,)).fetchone()['c']
+                  AND date(timestamp) = ?
+            ''', (store_id, latest_date)).fetchone()['c']
             
             purchased = conn.execute('''
                 SELECT COUNT(DISTINCT visitor_id) as c 
                 FROM events 
                 WHERE store_id = ? AND is_staff = 0 AND event_type = 'ZONE_EXIT' AND zone_id = 'BILLING'
-                  AND date(timestamp) = date('now')
-            ''', (store_id,)).fetchone()['c']
+                  AND date(timestamp) = ?
+            ''', (store_id, latest_date)).fetchone()['c']
 
             steps = [
                 {"step": "Entered", "count": entered},
@@ -207,26 +291,31 @@ class StorageEngine:
     def get_heatmap(self, store_id: str) -> Dict[str, Any]:
         """Compute normalized heatmap and dwell data."""
         with self._get_conn() as conn:
+            latest_date = self._get_latest_event_date(conn, store_id)
+
             # First find max visits to normalize 0-100
             zone_visits = conn.execute('''
                 SELECT zone_id, COUNT(DISTINCT visitor_id) as visits 
                 FROM events 
                 WHERE store_id = ? AND is_staff = 0 AND event_type = 'ZONE_ENTER'
+                  AND date(timestamp) = ?
                 GROUP BY zone_id
-            ''', (store_id,)).fetchall()
+            ''', (store_id, latest_date)).fetchall()
             
             zone_dwells = conn.execute('''
                 SELECT zone_id, AVG(dwell_ms) as avg_dwell 
                 FROM events 
                 WHERE store_id = ? AND is_staff = 0 AND event_type IN ('ZONE_EXIT', 'BILLING_QUEUE_ABANDON')
+                  AND date(timestamp) = ?
                 GROUP BY zone_id
-            ''', (store_id,)).fetchall()
+            ''', (store_id, latest_date)).fetchall()
             
             total_sessions = conn.execute('''
                 SELECT COUNT(DISTINCT visitor_id) as c 
                 FROM events 
                 WHERE store_id = ? AND is_staff = 0 
-            ''', (store_id,)).fetchone()['c']
+                  AND date(timestamp) = ?
+            ''', (store_id, latest_date)).fetchone()['c']
 
             dwell_map = {row['zone_id']: row['avg_dwell'] for row in zone_dwells}
             
@@ -252,6 +341,19 @@ class StorageEngine:
     # Anomaly tracking helpers
     def insert_anomaly(self, anomaly: Any) -> None:
         with self._get_conn() as conn:
+            # Check if there's already an active anomaly of the same type (and zone)
+            query = "SELECT id FROM anomalies WHERE store_id = ? AND anomaly_type = ? AND active = 1"
+            params = [anomaly.store_id, anomaly.anomaly_type.value]
+            if anomaly.zone_id:
+                query += " AND zone_id = ?"
+                params.append(anomaly.zone_id)
+            else:
+                query += " AND zone_id IS NULL"
+            
+            exists = conn.execute(query, params).fetchone()
+            if exists:
+                return # Don't insert duplicate active anomaly
+
             conn.execute('''
                 INSERT OR IGNORE INTO anomalies (
                     id, store_id, anomaly_type, severity, detected_at, 
@@ -272,3 +374,19 @@ class StorageEngine:
                 ORDER BY detected_at DESC
             ''', (store_id,)).fetchall()
             return [dict(row) for row in rows]
+
+    def get_last_event_time_per_store(self) -> Dict[str, datetime]:
+        with self._get_conn() as conn:
+            rows = conn.execute('''
+                SELECT store_id, MAX(timestamp) as last_time 
+                FROM events 
+                GROUP BY store_id
+            ''').fetchall()
+            res = {}
+            for row in rows:
+                if row['last_time']:
+                    try:
+                        res[row['store_id']] = datetime.fromisoformat(row['last_time'])
+                    except ValueError:
+                        res[row['store_id']] = datetime.fromisoformat(row['last_time'].replace('Z', '+00:00'))
+            return res

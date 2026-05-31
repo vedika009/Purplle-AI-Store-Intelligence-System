@@ -69,3 +69,67 @@ def test_event_extractor_flow():
     assert events3[1].event_type == EventType.BILLING_QUEUE_JOIN
     assert events3[1].zone_id == "BILLING"
     assert events3[1].metadata.queue_depth == 1
+
+def test_extractor_dwell_and_exit_timeout():
+    reid_manager = ReIDManager()
+    zone_manager = MagicMock(spec=ZoneManager)
+    
+    def mock_get_zone(x, y):
+        return "SKINCARE"
+    zone_manager.get_zone.side_effect = mock_get_zone
+    
+    extractor = EventExtractor("STORE_01", "CAM_01", reid_manager, zone_manager)
+    base_time = datetime(2026, 3, 3, 10, 0, 0, tzinfo=timezone.utc)
+    
+    # 1. Entry & Zone Enter
+    xyxy = np.array([[5, 5, 8, 8]])
+    detections = sv.Detections(xyxy=xyxy, tracker_id=np.array([1]), confidence=np.array([0.9]), class_id=np.array([0]))
+    
+    events1 = extractor.process_detections(detections, base_time)
+    assert len(events1) == 2
+    assert events1[0].event_type == EventType.ENTRY
+    assert events1[1].event_type == EventType.ZONE_ENTER
+    
+    # 2. Stay in SKINCARE for 35 seconds (triggers ZONE_DWELL at 35s)
+    time2 = base_time + timedelta(seconds=35)
+    events2 = extractor.process_detections(detections, time2)
+    assert len(events2) == 1
+    assert events2[0].event_type == EventType.ZONE_DWELL
+    assert events2[0].dwell_ms == 35000
+    
+    # 3. Disappear (no detections in frame at +50 seconds)
+    # The last seen time was time2 (10:00:35).
+    # Current frame is 10:00:50 (+15 seconds later, which exceeds 10s exit_timeout).
+    # This should trigger ZONE_EXIT (from SKINCARE) and EXIT at time2.
+    time3 = base_time + timedelta(seconds=50)
+    empty_detections = sv.Detections.empty()
+    events3 = extractor.process_detections(empty_detections, time3)
+    assert len(events3) == 2
+    assert events3[0].event_type == EventType.ZONE_EXIT
+    assert events3[0].zone_id == "SKINCARE"
+    assert events3[0].dwell_ms == 35000 # Dwell up to time2
+    assert events3[1].event_type == EventType.EXIT
+    assert events3[1].timestamp == time2 # Exit timestamp is last_seen_time
+
+def test_extractor_staff_marking():
+    reid_manager = ReIDManager()
+    zone_manager = MagicMock(spec=ZoneManager)
+    
+    # Setup zone manager to return STAFF_ONLY
+    def mock_get_zone(x, y):
+        return "STAFF_ONLY"
+    zone_manager.get_zone.side_effect = mock_get_zone
+    
+    extractor = EventExtractor("STORE_01", "CAM_01", reid_manager, zone_manager)
+    base_time = datetime(2026, 3, 3, 10, 0, 0, tzinfo=timezone.utc)
+    
+    xyxy = np.array([[5, 5, 8, 8]])
+    detections = sv.Detections(xyxy=xyxy, tracker_id=np.array([1]), confidence=np.array([0.9]), class_id=np.array([0]))
+    
+    events = extractor.process_detections(detections, base_time)
+    assert len(events) == 2
+    assert events[0].event_type == EventType.ENTRY
+    # Should be flagged as staff
+    assert events[0].is_staff is True
+    assert events[1].event_type == EventType.ZONE_ENTER
+    assert events[1].is_staff is True
