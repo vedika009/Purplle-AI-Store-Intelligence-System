@@ -1,4 +1,4 @@
-# Purplle AI Store Intelligence System
+# RetailVision - Illuminating the Physical Store
 
  This system is an AI-powered Store Intelligence System that processes raw CCTV footage, extracts analytical events, tracks conversions against POS data, and serves real-time insights via a FastAPI backend.
 
