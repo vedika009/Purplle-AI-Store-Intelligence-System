@@ -1,4 +1,5 @@
 import cv2
+import uuid
 import supervision as sv
 from ultralytics import YOLO
 import numpy as np
@@ -45,8 +46,7 @@ class ReIDManager:
     def get_visitor_id(self, track_id: int) -> str:
         # In a real scenario, this would use deep sort / OSNet to check if a new track_id
         # visually matches an old visitor_id (Re-ID for re-entry).
-        # For now, we simulate by mapping 1:1, but the architecture supports complex logic here.
-        import uuid
+        # For now, we map 1:1, but the architecture supports complex Re-ID logic here.
         if track_id not in self.track_to_visitor:
             self.track_to_visitor[track_id] = f"VIS_{str(uuid.uuid4())[:8]}"
         return self.track_to_visitor[track_id]

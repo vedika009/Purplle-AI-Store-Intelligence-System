@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   api:
     build: .
@@ -8,5 +6,6 @@ services:
     environment:
       - DATABASE_PATH=store_intelligence.db
     volumes:
-      - ./:/app
-    command: uvicorn src.api.app:app --host 0.0.0.0 --port 8000 --reload
+      - ./store_layout.json:/app/store_layout.json
+      - ./pos_transactions.csv:/app/pos_transactions.csv
+    command: uvicorn src.api.app:app --host 0.0.0.0 --port 8000

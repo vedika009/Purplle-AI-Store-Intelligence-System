@@ -1,6 +1,9 @@
 import json
+import logging
 from typing import Dict, Any, List
 from shapely.geometry import Point, Polygon
+
+logger = logging.getLogger(__name__)
 
 class ZoneManager:
     def __init__(self, layout_path: str, camera_id: str):
@@ -23,8 +26,8 @@ class ZoneManager:
                 for zone_id, points in layout[self.camera_id].items():
                     self.zones[zone_id] = Polygon(points)
         except FileNotFoundError:
-            # Handle graceful degradation if no layout config exists yet
-            pass
+            logger.warning(f"⚠ store_layout.json not found at '{layout_path}'. All zone events will be skipped. "
+                          f"Create this file or pass --layout with the correct path.")
 
     def get_zone(self, x: float, y: float) -> str | None:
         """

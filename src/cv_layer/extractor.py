@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 import supervision as sv
 
@@ -171,7 +171,6 @@ class EventExtractor:
                         state.last_dwell_emit_time = frame_timestamp
 
         # Handle EXIT logic (if not seen for exit_timeout, consider exited)
-        from datetime import timedelta
         exit_timeout = timedelta(seconds=10)
         
         for visitor_id, state in list(self.visitor_states.items()):

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Dict, Any, Union
+from typing import Optional
 from pydantic import BaseModel, Field
 
 class EventType(str, Enum):

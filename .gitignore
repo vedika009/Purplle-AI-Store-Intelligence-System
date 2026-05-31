@@ -35,4 +35,6 @@ cover/
 # Project specific
 data/
 logs/
+scratch/
+*.db
 .DS_Store

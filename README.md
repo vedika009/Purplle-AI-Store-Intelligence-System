@@ -32,7 +32,7 @@
 
 You can also run the API locally without Docker:
 ```bash
-uvicorn src.api.app:app --reload
+uvicorn src.api.app:app --host 0.0.0.0 --port 8000
 ```
 
 ## Live Dashboard & Real Video pipeline (Phase 7)
@@ -40,7 +40,7 @@ To see the system in action:
 
 1. **Start the API server (if not already running):**
    ```bash
-   uvicorn src.api.app:app --reload
+   uvicorn src.api.app:app --host 0.0.0.0 --port 8000
    ```
 2. **Open the Dashboard in your browser:**
    Navigate to [http://localhost:8000/dashboard](http://localhost:8000/dashboard)
@@ -77,3 +77,14 @@ Watch the dashboard update live as the real/simulated people browse, queue, and 
 - **Phase 3:** Event Schema & Streaming (Batched HTTP POST).
 - **Phase 4:** Anomaly Detection (Queue Spikes, Dead Zones, Conversion Drops).
 - **Phase 5 & 6:** Storage Analytics (SQLite) & Production Intelligence API (FastAPI).
+- **Part E Dashboard:** Live dashboard available at [http://localhost:8000/dashboard](http://localhost:8000/dashboard) — shows real-time KPIs, interactive SVG floor plan heatmap, customer journey funnel, and anomaly alerts.
+
+## API Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Service status, per-store lag, STALE_FEED warnings |
+| `/events/ingest` | POST | Batch event ingestion with partial success and idempotency |
+| `/stores/{id}/metrics` | GET | Unique visitors, conversion rate, avg dwell, queue depth |
+| `/stores/{id}/funnel` | GET | Entry → Browse → Queue → Purchase with drop-off % |
+| `/stores/{id}/heatmap` | GET | Zone visit frequency (0-100) and avg dwell |
+| `/stores/{id}/anomalies` | GET | Active anomalies: queue spike, dead zone, conversion drop |

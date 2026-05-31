@@ -39,24 +39,22 @@ class EventStreamer:
             self.flush()
             
     def flush(self) -> None:
-        """Send currently buffered events to the API."""
-        if not self.buffer:
-            return
-            
-        # Take up to batch_size
-        batch = self.buffer[:self.batch_size]
-        payload = [json.loads(event.model_dump_json()) for event in batch]
+        """Send all currently buffered events to the API in batches."""
+        while self.buffer:
+            batch = self.buffer[:self.batch_size]
+            payload = [json.loads(event.model_dump_json()) for event in batch]
         
-        try:
-            endpoint = urljoin(self.api_url, "/events/ingest")
-            response = self.session.post(endpoint, json=payload, timeout=5.0)
-            response.raise_for_status()
+            try:
+                endpoint = urljoin(self.api_url, "/events/ingest")
+                response = self.session.post(endpoint, json=payload, timeout=5.0)
+                response.raise_for_status()
             
-            # Remove successfully sent events from buffer
-            self.buffer = self.buffer[self.batch_size:]
-            logger.info(f"Successfully streamed batch of {len(batch)} events")
+                # Remove successfully sent events from buffer
+                self.buffer = self.buffer[self.batch_size:]
+                logger.info(f"Successfully streamed batch of {len(batch)} events")
             
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to stream events to API: {e}")
-            # Keep in buffer for next flush attempt
-            # In a production system, we might dump to disk after max retries
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Failed to stream events to API: {e}")
+                # Keep remaining events in buffer for next flush attempt
+                break
+

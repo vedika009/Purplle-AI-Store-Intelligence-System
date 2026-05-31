@@ -49,12 +49,12 @@ def test_ingest_events_and_idempotency():
     
     # 2. Ingest once
     response1 = client.post("/events/ingest", json=[event])
-    assert response1.status_code == 200
+    assert response1.json()["accepted"] == 1
     assert response1.json()["inserted"] == 1
     
     # 3. Ingest exactly the same event again (Idempotency check)
     response2 = client.post("/events/ingest", json=[event])
-    assert response2.status_code == 200
+    assert response2.json()["accepted"] == 1
     assert response2.json()["inserted"] == 0 # Should ignore duplicate
 
 def test_metrics_endpoint():

@@ -1,9 +1,10 @@
 import sqlite3
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 
 from src.cv_layer.schema import EventSchema
+from src.anomaly.schema import Anomaly
 
 class StorageEngine:
     def __init__(self, db_path: str = "store_intelligence.db"):
@@ -13,6 +14,7 @@ class StorageEngine:
     def _get_conn(self):
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
+        conn.execute('PRAGMA journal_mode=WAL')
         return conn
         
     def _init_db(self):
@@ -118,7 +120,6 @@ class StorageEngine:
             
     def get_historical_average_cr(self, store_id: str, current_time: datetime) -> float:
         """Computes the overall conversion rate in the 7 days prior to current_time."""
-        from datetime import timedelta
         with self._get_conn() as conn:
             end_date = (current_time - timedelta(days=1)).strftime("%Y-%m-%d")
             start_date = (current_time - timedelta(days=7)).strftime("%Y-%m-%d")
@@ -339,7 +340,7 @@ class StorageEngine:
             }
 
     # Anomaly tracking helpers
-    def insert_anomaly(self, anomaly: Any) -> None:
+    def insert_anomaly(self, anomaly: Anomaly) -> None:
         with self._get_conn() as conn:
             # Check if there's already an active anomaly of the same type (and zone)
             query = "SELECT id FROM anomalies WHERE store_id = ? AND anomaly_type = ? AND active = 1"

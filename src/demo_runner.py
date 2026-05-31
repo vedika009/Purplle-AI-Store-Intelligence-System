@@ -65,11 +65,9 @@ def run_pipeline(simulate: bool):
     pos_correlator = POSCorrelator()
     extractor = EventExtractor("purplle_brigade_road", "cam_1", reid_manager, zone_manager, pos_correlator)
     streamer = EventStreamer(api_url="http://localhost:8000", batch_size=2) # Small batch for fast live updates
-    
-    if not simulate:
-        logger.info("Running in normal mode, expecting real video feed or RTSP stream. (Not implemented in this demo script - use main.py for real feeds. Switching to simulate)")
-        simulate = True
 
+    # Note: For real video processing, use pipeline_runner.py instead.
+    # This script is for simulated demo mode only.
     logger.info("Starting pipeline simulation...")
 
     frame_idx = 0
