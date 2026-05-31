@@ -1,7 +1,10 @@
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from typing import List
 from datetime import datetime, timezone
 import logging
+import os
 
 from src.storage.engine import StorageEngine
 from src.cv_layer.schema import EventSchema
@@ -11,6 +14,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("api")
 
 app = FastAPI(title="Purplle Store Intelligence API")
+
+# Mount static files for the dashboard
+os.makedirs("src/api/static", exist_ok=True)
+app.mount("/static", StaticFiles(directory="src/api/static", html=True), name="static")
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/static/index.html")
+
+@app.get("/dashboard", include_in_schema=False)
+async def dashboard():
+    return RedirectResponse(url="/static/index.html")
 
 # Initialize shared components
 storage = StorageEngine("store_intelligence.db")

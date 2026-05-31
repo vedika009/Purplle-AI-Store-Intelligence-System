@@ -2,6 +2,14 @@
 
 *Front-load your reasoning: State the decision first, then the rationale.*
 
+### Detection Model (Phase 1 & 2)
+**Decision:** We selected YOLOv8 coupled with ByteTrack (`supervision` library) for object detection and tracking.
+**Rationale:** YOLOv8 provides state-of-the-art accuracy with extremely fast inference speeds, which is crucial for real-time edge processing. ByteTrack is highly robust for maintaining track IDs even during brief occlusions without the heavy computational cost of ReID-based trackers.
+
+### Event Schema Design (Phase 3)
+**Decision:** We designed a strict Pydantic model (`EventSchema`) with an explicit `EventType` Enum containing exactly the 8 mandated events (ENTRY, ZONE_ENTER, etc.) and a flexible `metadata` dictionary.
+**Rationale:** Using Pydantic guarantees data validation at the ingestion layer, preventing corrupted downstream analytics. A flexible `metadata` field allows passing contextual details (like `queue_depth` or `session_seq`) without breaking the top-level schema contract.
+
 ### Staff Filtering
 **Decision:** We will use designated staff-entry zones to tag track IDs as "staff".
 **Rationale:** This avoids complex re-identification models. Staff entering through the front door are manually mapped if necessary, but designated zones offer the most reliable, low-complexity solution for the demo.

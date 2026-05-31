@@ -12,3 +12,9 @@ The system is built to ingest CCTV, detect people, stream events, aggregate metr
 3. **Correlation & Streaming**: Ingests `pos_transactions.csv` to correlate billing zone exits with purchases vs. queue abandonment. Streams batched events via HTTP to the Intelligence API.
 4. **Storage Engine**: Persists the events in a local SQLite database (`store_intelligence.db`), allowing performant analytical queries (metrics, funnel drop-off, heatmaps).
 5. **Intelligence API**: Exposes FastAPI endpoints for ingestion, health checks, metrics, funnels, heatmaps, and active anomaly alerts.
+
+### AI-Assisted Decisions
+*   **Modular Architecture:** AI was utilized to design the decoupled architecture, suggesting the separation of the Computer Vision layer from the Streaming layer to allow independent scaling.
+*   **Event Schema:** The Pydantic-based `EventSchema` was crafted with AI assistance to ensure strict adherence to the challenge constraints, standardizing fields like `metadata` for flexible extensions.
+*   **Testing Strategy:** AI generated the foundational pytest structure, ensuring complete coverage and adherence to the `# PROMPT` / `# CHANGES MADE` documentation requirement across all test files.
+*   **Demo Runner:** AI helped conceptualize the `demo_runner.py` to seamlessly simulate detection data when live CCTV feeds are unavailable, making the Phase 7 dashboard easily testable.

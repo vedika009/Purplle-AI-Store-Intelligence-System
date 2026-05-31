@@ -35,6 +35,22 @@ You can also run the API locally without Docker:
 uvicorn src.api.app:app --reload
 ```
 
+## Live Dashboard Demo (Phase 7)
+To see the system in action with real-time updating metrics and funnel:
+
+1. **Start the API server (if not already running):**
+   ```bash
+   uvicorn src.api.app:app --reload
+   ```
+2. **Open the Dashboard in your browser:**
+   Navigate to [http://localhost:8000/dashboard](http://localhost:8000/dashboard)
+3. **Run the simulated pipeline:**
+   In a new terminal, run the demo script to simulate store traffic and events:
+   ```bash
+   python -m src.demo_runner --simulate
+   ```
+Watch the dashboard update live as the simulated people browse, queue, and checkout!
+
 ## Documentation
 - `DESIGN.md`: High-level system overview and end-to-end data flow.
 - `CHOICES.md`: Explains core architectural decisions, models, streaming rationale, and edge-case handling.
