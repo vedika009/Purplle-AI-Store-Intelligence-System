@@ -17,6 +17,9 @@ app = FastAPI(title="Purplle Store Intelligence API")
 
 # Mount static files for the dashboard
 os.makedirs("src/api/static", exist_ok=True)
+import shutil
+if os.path.exists("store_layout.json"):
+    shutil.copy("store_layout.json", "src/api/static/store_layout.json")
 app.mount("/static", StaticFiles(directory="src/api/static", html=True), name="static")
 
 @app.get("/", include_in_schema=False)

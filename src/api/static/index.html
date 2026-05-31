@@ -201,6 +201,18 @@
                     </div>
                 </div>
             </div>
+            <!-- Camera View Selector -->
+            <div class="flex flex-col">
+                <label class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Camera Angle</label>
+                <div class="relative">
+                    <select id="camera-selector" class="appearance-none bg-slate-900/80 border border-purple-500/30 text-purple-300 text-sm font-semibold rounded-lg px-4 py-1.5 pr-8 focus:outline-none focus:border-purple-500 cursor-pointer">
+                        <option value="cam_1" selected>Camera view: cam_1</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-purple-400">
+                        <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                    </div>
+                </div>
+            </div>
             <!-- Sync / Pipeline Health -->
             <div class="flex flex-col">
                 <label class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold mb-1">System Health</label>
@@ -461,7 +473,50 @@
         };
 
         let activeStoreId = 'purplle_brigade_road';
+        let activeCameraId = 'cam_1';
+        let layoutConfig = null;
+        let activeLayoutZones = {};
         let dwellChart = null;
+
+        // Fetch store_layout.json from the static directory
+        async function fetchLayoutConfig() {
+            try {
+                const res = await fetch('/static/store_layout.json');
+                if (res.ok) {
+                    layoutConfig = await res.json();
+                    populateCameraSelector();
+                }
+            } catch (error) {
+                console.error("Failed to load store_layout.json:", error);
+            }
+            // Always initialize layout
+            initStoreLayout();
+            initDwellChart();
+            
+            // Trigger initial data load
+            updateDashboardData();
+            
+            // Poll every 2 seconds
+            setInterval(updateDashboardData, 2000);
+        }
+
+        function populateCameraSelector() {
+            const selector = document.getElementById('camera-selector');
+            selector.innerHTML = '';
+            if (!layoutConfig) return;
+
+            const cameras = Object.keys(layoutConfig);
+            cameras.forEach((cam, idx) => {
+                const opt = document.createElement('option');
+                opt.value = cam;
+                opt.textContent = `Camera view: ${cam}`;
+                if (idx === 0) {
+                    opt.selected = true;
+                    activeCameraId = cam;
+                }
+                selector.appendChild(opt);
+            });
+        }
 
         // Initialize dynamic layout polygons
         function initStoreLayout() {
@@ -472,8 +527,33 @@
             paths.forEach(p => p.remove());
 
             // Build new zones
-            Object.keys(storeZones).forEach(zoneId => {
-                const config = storeZones[zoneId];
+            activeLayoutZones = {};
+            
+            let sourceZones = storeZones; // Fallback
+            if (layoutConfig && layoutConfig[activeCameraId]) {
+                const rawCameraZones = layoutConfig[activeCameraId];
+                sourceZones = {};
+                Object.keys(rawCameraZones).forEach(zId => {
+                    let col = "purple";
+                    if (zId.includes("STAFF")) col = "gray";
+                    else if (zId.includes("BILLING")) col = "indigo";
+                    else if (zId.includes("SKINCARE")) col = "pink";
+                    
+                    let prettyLabel = zId.replace(/_/g, ' ');
+                    prettyLabel = prettyLabel.charAt(0).toUpperCase() + prettyLabel.slice(1).toLowerCase();
+
+                    sourceZones[zId] = {
+                        poly: rawCameraZones[zId],
+                        label: prettyLabel,
+                        color: col
+                    };
+                });
+            }
+
+            activeLayoutZones = sourceZones;
+
+            Object.keys(activeLayoutZones).forEach(zoneId => {
+                const config = activeLayoutZones[zoneId];
                 const pointsStr = config.poly.map(pt => pt.join(',')).join(' ');
                 
                 // Create SVG Polygon element
@@ -483,7 +563,7 @@
                 polygon.setAttribute('class', 'zone-polygon');
                 
                 // Apply base styles depending on zone type
-                if (zoneId === 'STAFF_ONLY') {
+                if (zoneId === 'STAFF_ONLY' || zoneId.includes('STAFF')) {
                     polygon.setAttribute('fill', 'rgba(100, 116, 139, 0.15)');
                     polygon.setAttribute('stroke', 'rgba(100, 116, 139, 0.4)');
                 } else {
@@ -515,6 +595,12 @@
                 subLabel.textContent = "0 visits";
                 svg.appendChild(subLabel);
             });
+
+            // Update chart labels dynamically if initialized
+            if (dwellChart) {
+                dwellChart.data.labels = Object.keys(activeLayoutZones).map(zId => activeLayoutZones[zId].label);
+                dwellChart.update();
+            }
         }
 
         // Helper to compute centroid/bounding box center for polygons
@@ -537,7 +623,7 @@
 
         function showTooltip(e, zoneId) {
             const tooltip = document.getElementById('layout-tooltip');
-            const zoneInfo = storeZones[zoneId];
+            const zoneInfo = activeLayoutZones[zoneId] || storeZones[zoneId];
             const data = heatmapDataCache[zoneId] || { frequency: 0, avgDwell: 0 };
             
             document.getElementById('tooltip-title').textContent = zoneInfo.label;
@@ -613,12 +699,10 @@
                     // Update chart with specific zone values
                     if (dwellChart) {
                         const zoneDwells = metrics.avg_dwell_per_zone || {};
-                        dwellChart.data.datasets[0].data = [
-                            Math.round((zoneDwells['ENTRY_DOOR'] || 0) / 1000),
-                            Math.round((zoneDwells['SKINCARE'] || 0) / 1000),
-                            Math.round((zoneDwells['BILLING'] || 0) / 1000),
-                            Math.round((zoneDwells['STAFF_ONLY'] || 0) / 1000)
-                        ];
+                        const datasetData = Object.keys(activeLayoutZones).map(zId => {
+                            return Math.round((zoneDwells[zId] || 0) / 1000);
+                        });
+                        dwellChart.data.datasets[0].data = datasetData;
                         dwellChart.update();
                     }
                 }
@@ -703,10 +787,10 @@
             heatmapDataCache = {};
             
             // Clear polygons back to base
-            Object.keys(storeZones).forEach(zId => {
+            Object.keys(activeLayoutZones).forEach(zId => {
                 const poly = document.getElementById(`poly-${zId}`);
                 const sublabel = document.getElementById(`sublabel-${zId}`);
-                if (poly && zId !== 'STAFF_ONLY') {
+                if (poly && !zId.includes('STAFF')) {
                     poly.setAttribute('fill', 'rgba(168, 85, 247, 0.04)');
                     poly.setAttribute('stroke', 'rgba(168, 85, 247, 0.25)');
                 }
@@ -731,7 +815,7 @@
                     sublabel.textContent = `${freq.toFixed(0)}% visits`;
                 }
 
-                if (!poly || zId === 'STAFF_ONLY') return;
+                if (!poly || zId.includes('STAFF')) return;
 
                 // Determine heat fill opacity
                 let opacity = 0.05 + (freq / 100) * 0.7; // scaled opacity between 0.05 and 0.75
@@ -841,6 +925,22 @@
                 sysLag.textContent = "N/A";
                 sysLastEvent.textContent = "--:--:--";
             }
+
+            // Dynamically populate store-selector with active stores if not already present
+            const storeSelector = document.getElementById('store-selector');
+            if (health.stores) {
+                const activeStoresInDropdown = Array.from(storeSelector.options).map(opt => opt.value);
+                Object.keys(health.stores).forEach(storeId => {
+                    if (!activeStoresInDropdown.includes(storeId)) {
+                        const opt = document.createElement('option');
+                        opt.value = storeId;
+                        let name = storeId.replace(/_/g, ' ');
+                        name = name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                        opt.textContent = name;
+                        storeSelector.appendChild(opt);
+                    }
+                });
+            }
         }
 
         // Store selection handler
@@ -850,15 +950,15 @@
             updateDashboardData();
         });
 
+        // Camera view selection handler
+        document.getElementById('camera-selector').addEventListener('change', (e) => {
+            activeCameraId = e.target.value;
+            initStoreLayout();
+            updateDashboardData();
+        });
+
         // Initialize elements
-        initStoreLayout();
-        initDwellChart();
-        
-        // Initial Fetch
-        updateDashboardData();
-        
-        // 2-second dashboard polling
-        setInterval(updateDashboardData, 2000);
+        fetchLayoutConfig();
     </script>
 </body>
 </html>
