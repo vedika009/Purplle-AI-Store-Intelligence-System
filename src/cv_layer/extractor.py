@@ -6,6 +6,7 @@ import supervision as sv
 from src.cv_layer.schema import EventSchema, EventType, EventMetadata
 from src.cv_layer.tracker import ReIDManager
 from src.cv_layer.zone_mapper import ZoneManager
+from src.streaming.pos_correlator import POSCorrelator
 
 class VisitorState:
     def __init__(self, visitor_id: str, track_id: int):
@@ -19,11 +20,12 @@ class VisitorState:
         self.last_seen_time: Optional[datetime] = None
 
 class EventExtractor:
-    def __init__(self, store_id: str, camera_id: str, reid_manager: ReIDManager, zone_manager: ZoneManager):
+    def __init__(self, store_id: str, camera_id: str, reid_manager: ReIDManager, zone_manager: ZoneManager, pos_correlator: Optional[POSCorrelator] = None):
         self.store_id = store_id
         self.camera_id = camera_id
         self.reid_manager = reid_manager
         self.zone_manager = zone_manager
+        self.pos_correlator = pos_correlator
         self.visitor_states: Dict[str, VisitorState] = {}
         
     def _create_event(self, event_type: EventType, visitor_id: str, timestamp: datetime, 
@@ -102,8 +104,14 @@ class EventExtractor:
                     dwell = int((frame_timestamp - state.zone_entry_time).total_seconds() * 1000)
                     
                     if state.current_zone == "BILLING":
-                        # Simplistic abandon logic: left billing before POS correlation (handled downstream)
-                        emitted_events.append(self._create_event(EventType.BILLING_QUEUE_ABANDON, visitor_id, frame_timestamp, confidence, state.current_zone, dwell))
+                        abandoned = True
+                        if self.pos_correlator and self.pos_correlator.check_correlation(self.store_id, frame_timestamp):
+                            abandoned = False
+                            
+                        if abandoned:
+                            emitted_events.append(self._create_event(EventType.BILLING_QUEUE_ABANDON, visitor_id, frame_timestamp, confidence, state.current_zone, dwell))
+                        else:
+                            emitted_events.append(self._create_event(EventType.ZONE_EXIT, visitor_id, frame_timestamp, confidence, state.current_zone, dwell))
                     else:
                         emitted_events.append(self._create_event(EventType.ZONE_EXIT, visitor_id, frame_timestamp, confidence, state.current_zone, dwell))
                 
