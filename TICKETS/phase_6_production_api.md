@@ -4,11 +4,12 @@
 Expose analytics via a robust API.
 
 ## Tasks
-- [ ] Develop FastAPI endpoints:
+- Develop FastAPI endpoints:
   - `GET /stores/{id}/footfall`
   - `GET /stores/{id}/heatmap`
   - `GET /stores/{id}/queue`
   - `GET /stores/{id}/anomalies`
+  - `GET /stores/{id}/funnel`
   - `WS /stores/{id}/live`
   - `POST /stores/{id}/zones`
 - [ ] Implement Authentication (JWT/API Key).

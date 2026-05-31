@@ -6,9 +6,10 @@ Extract semantic events from video frames using detection and tracking.
 ## Tasks
 - [ ] Set up YOLOv8 (nano/small) for person detection.
 - [ ] Implement multi-object tracker (ByteTrack/BoT-SORT) for track ID consistency.
-- [ ] Create zone mapper (Polygon ROI definitions via JSON).
-- [ ] Implement point-in-polygon logic using `shapely`.
-- [ ] Develop event extractor to emit structured events:
+- Create zone mapper (Polygon ROI definitions via JSON).
+- Implement point-in-polygon logic using `shapely`.
+- Implement Staff Filtering: Define designated staff-entry zones or allow manual flagging of staff track IDs.
+- Develop event extractor to emit structured events:
   - `PersonEntered(zone, track_id, timestamp)`
   - `PersonExited(zone, track_id, timestamp, dwell_seconds)`
   - `QueueDepth(zone, count, timestamp)`
