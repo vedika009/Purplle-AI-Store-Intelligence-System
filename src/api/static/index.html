@@ -6,7 +6,7 @@
     <title>Purplle AI Store Intelligence</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
+    <style type="text/tailwindcss">
         .metric-card {
             @apply bg-white rounded-xl shadow-md p-6 flex flex-col justify-between transition-transform transform hover:scale-105;
         }
@@ -86,19 +86,21 @@
         const funnelChart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: ['Entered', 'Browsed', 'Checked Out'],
+                labels: ['Entered', 'Browsed', 'Queued', 'Purchased'],
                 datasets: [{
                     label: 'Visitor Count',
-                    data: [0, 0, 0],
+                    data: [0, 0, 0, 0],
                     backgroundColor: [
                         'rgba(147, 51, 234, 0.8)',  // Purple 600
                         'rgba(168, 85, 247, 0.8)',  // Purple 500
-                        'rgba(192, 132, 252, 0.8)'  // Purple 400
+                        'rgba(192, 132, 252, 0.8)',  // Purple 400
+                        'rgba(216, 180, 254, 0.8)'   // Purple 300
                     ],
                     borderColor: [
                         'rgb(126, 34, 206)',
                         'rgb(147, 51, 234)',
-                        'rgb(168, 85, 247)'
+                        'rgb(168, 85, 247)',
+                        'rgb(192, 132, 252)'
                     ],
                     borderWidth: 1,
                     borderRadius: 4
@@ -128,20 +130,30 @@
                 const metricsRes = await fetch(`/stores/${STORE_ID}/metrics`);
                 if (metricsRes.ok) {
                     const metrics = await metricsRes.json();
-                    document.getElementById('val-total-visitors').textContent = metrics.total_visitors || 0;
-                    document.getElementById('val-conversion-rate').textContent = (metrics.conversion_rate || 0).toFixed(1) + '%';
-                    document.getElementById('val-avg-dwell').textContent = Math.round(metrics.avg_dwell_time_minutes * 60) + 's';
-                    document.getElementById('val-queue-depth').textContent = (metrics.avg_queue_depth || 0).toFixed(1);
+                    document.getElementById('val-total-visitors').textContent = metrics.unique_visitors_today || 0;
+                    document.getElementById('val-conversion-rate').textContent = ((metrics.conversion_rate || 0) * 100).toFixed(1) + '%';
+                    
+                    const avgDwellSeconds = Math.round((metrics.avg_dwell_ms || 0) / 1000);
+                    document.getElementById('val-avg-dwell').textContent = avgDwellSeconds + 's';
+                    
+                    document.getElementById('val-queue-depth').textContent = (metrics.current_queue_depth || 0);
                 }
 
                 // Fetch Funnel
                 const funnelRes = await fetch(`/stores/${STORE_ID}/funnel`);
                 if (funnelRes.ok) {
-                    const funnel = await funnelRes.json();
+                    const funnelData = await funnelRes.json();
+                    const funnelMap = {};
+                    if (funnelData.funnel && Array.isArray(funnelData.funnel)) {
+                        funnelData.funnel.forEach(item => {
+                            funnelMap[item.step] = item.count;
+                        });
+                    }
                     funnelChart.data.datasets[0].data = [
-                        funnel.entered || 0,
-                        funnel.browsed || 0,
-                        funnel.checked_out || 0
+                        funnelMap['Entered'] || 0,
+                        funnelMap['Browsed'] || 0,
+                        funnelMap['Queued'] || 0,
+                        funnelMap['Purchased'] || 0
                     ];
                     funnelChart.update();
                 }

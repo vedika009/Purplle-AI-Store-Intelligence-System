@@ -1,5 +1,5 @@
 # PROMPT: Implement tests for EventStreamer and POSCorrelator created in Phase 3. The EventStreamer batches events and sends them via HTTP POST, supporting retries. The POSCorrelator checks for POS transactions within a window to determine queue abandonment.
-# CHANGES MADE: Added `tests/test_streaming.py` with unit tests for `EventStreamer` and `POSCorrelator`. Used mocking to simulate HTTP requests and file reading.
+# CHANGES MADE: Added `tests/test_streaming.py` with unit tests for `EventStreamer` and `POSCorrelator`. Added tests verifying support for parsing real Purplle CSV schema formats and matching store names.
 
 import pytest
 import uuid
@@ -93,3 +93,30 @@ def test_pos_correlator_match():
 def test_pos_correlator_empty():
     correlator = POSCorrelator()
     assert correlator.check_correlation("store_1", datetime.now(timezone.utc)) is False
+
+def test_pos_correlator_real_csv_format(tmp_path):
+    # Dummy CSV with real Purplle layout
+    csv_content = (
+        "order_id,store_id,store_name,order_date,order_time,total_amount\n"
+        "104363838,ST1008,Brigade_Bangalore,10-04-2026,16:55:36,400.0\n"
+        "104377545,ST1008,Brigade_Bangalore,10-04-2026,19:21:55,198.0\n"
+    )
+    csv_file = tmp_path / "real_pos.csv"
+    csv_file.write_text(csv_content)
+    
+    correlator = POSCorrelator(correlation_window_minutes=5)
+    correlator.load_transactions(str(csv_file))
+    
+    assert len(correlator.transactions) == 2
+    assert correlator.transactions[0]["transaction_id"] == "104363838"
+    assert correlator.transactions[0]["amount"] == 400.0
+    
+    # Check correlation using camera store ID (purplle_brigade_road) and timestamp matching real CSV
+    # Exit time is 2 minutes before the transaction (16:53:36)
+    exit_time = datetime(2026, 4, 10, 16, 53, 36, tzinfo=timezone.utc)
+    assert correlator.check_correlation("purplle_brigade_road", exit_time) is True
+    
+    # 6 minutes before -> outside window
+    exit_time_early = datetime(2026, 4, 10, 16, 49, 36, tzinfo=timezone.utc)
+    assert correlator.check_correlation("purplle_brigade_road", exit_time_early) is False
+

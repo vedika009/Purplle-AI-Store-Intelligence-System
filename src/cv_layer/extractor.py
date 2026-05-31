@@ -28,6 +28,22 @@ class EventExtractor:
         self.pos_correlator = pos_correlator
         self.visitor_states: Dict[str, VisitorState] = {}
         
+        # Calculate the boundary of defined layout zones to auto-scale raw detection coordinates
+        self.max_x = 400.0
+        self.max_y = 400.0
+        zones = getattr(self.zone_manager, "zones", None)
+        if isinstance(zones, dict) and zones:
+            all_x = []
+            all_y = []
+            for poly in zones.values():
+                bounds = poly.bounds  # (minx, miny, maxx, maxy)
+                all_x.append(bounds[2])
+                all_y.append(bounds[3])
+            if all_x:
+                self.max_x = max(all_x)
+            if all_y:
+                self.max_y = max(all_y)
+        
     def _create_event(self, event_type: EventType, visitor_id: str, timestamp: datetime, 
                       confidence: float, zone_id: Optional[str] = None, 
                       dwell_ms: int = 0, queue_depth: Optional[int] = None) -> EventSchema:
@@ -53,7 +69,7 @@ class EventExtractor:
         state.session_seq += 1
         return event
 
-    def process_detections(self, detections: sv.Detections, frame_timestamp: datetime) -> List[EventSchema]:
+    def process_detections(self, detections: sv.Detections, frame_timestamp: datetime, frame_size: Optional[tuple] = None) -> List[EventSchema]:
         """
         Takes tracking output for a single frame and generates behavioural events.
         """
@@ -74,6 +90,12 @@ class EventExtractor:
             # Get bottom center of bbox for zone placement
             x_center = (xyxy[0] + xyxy[2]) / 2.0
             y_bottom = xyxy[3]
+            
+            # Auto-scale coordinates if frame_size is specified
+            if frame_size:
+                width, height = frame_size
+                x_center = (x_center / width) * self.max_x
+                y_bottom = (y_bottom / height) * self.max_y
             
             visitor_id = self.reid_manager.get_visitor_id(track_id)
             if visitor_id not in self.visitor_states:

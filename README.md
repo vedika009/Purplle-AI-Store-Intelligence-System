@@ -35,8 +35,8 @@ You can also run the API locally without Docker:
 uvicorn src.api.app:app --reload
 ```
 
-## Live Dashboard Demo (Phase 7)
-To see the system in action with real-time updating metrics and funnel:
+## Live Dashboard & Real Video pipeline (Phase 7)
+To see the system in action:
 
 1. **Start the API server (if not already running):**
    ```bash
@@ -44,12 +44,29 @@ To see the system in action with real-time updating metrics and funnel:
    ```
 2. **Open the Dashboard in your browser:**
    Navigate to [http://localhost:8000/dashboard](http://localhost:8000/dashboard)
-3. **Run the simulated pipeline:**
-   In a new terminal, run the demo script to simulate store traffic and events:
+
+3. **Option A: Run the simulated pipeline** (for quick verification of the dashboard interface):
    ```bash
    python -m src.demo_runner --simulate
    ```
-Watch the dashboard update live as the simulated people browse, queue, and checkout!
+
+4. **Option B: Run the pipeline on real CCTV clips & POS Data:**
+   You can run the end-to-end computer vision tracking and correlation pipeline on the real video clips (`.mp4`) and real POS transaction data (`.csv`):
+   ```bash
+   # Activate the virtual environment
+   venv\Scripts\activate
+
+   # Run the pipeline runner on CAM 1, correlating with the real POS CSV file
+   python -m src.pipeline_runner --video "./data/raw/CCTV Footage-20260529T160731Z-3-00144614ea/CCTV Footage/CAM 1.mp4" --pos-csv "./data/raw/Brigade_Bangalore_10_April_26 (1)bc6219c.csv" --camera-id "cam_1" --store-id "purplle_brigade_road" --max-frames 200
+   ```
+   **Key Configuration Options:**
+   - `--video`: Path to the raw CCTV video (`.mp4`) clip.
+   - `--pos-csv`: Path to the real POS transactions (`.csv`) file for correlation.
+   - `--max-frames`: Limit the number of processed frames (e.g. `200`) for quick tests, or omit to process the entire video.
+   - `--sample-fps`: Set target processing rate (default: `3` FPS).
+   - `--show-preview`: Add this flag to open a real-time OpenCV window showing visual YOLO detection boxes, tracker IDs, and store zone polygons overlaid on the video frame.
+
+Watch the dashboard update live as the real/simulated people browse, queue, and checkout!
 
 ## Documentation
 - `DESIGN.md`: High-level system overview and end-to-end data flow.
