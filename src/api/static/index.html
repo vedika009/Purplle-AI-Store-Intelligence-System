@@ -3,221 +3,862 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Purplle AI Store Intelligence</title>
+    <title>Purplle Store Intelligence - Real-Time Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS (for base utilities) -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style type="text/tailwindcss">
+    <!-- Custom Premium Styles (Vanilla CSS) -->
+    <style>
+        :root {
+            --bg-gradient-start: #080312;
+            --bg-gradient-end: #120722;
+            --panel-bg: rgba(20, 10, 35, 0.6);
+            --panel-border: rgba(168, 85, 247, 0.25);
+            --panel-border-hover: rgba(168, 85, 247, 0.5);
+            
+            --purple-glow: rgba(168, 85, 247, 0.4);
+            --purple-solid: #a855f7;
+            --purple-light: #c084fc;
+            
+            --emerald-glow: rgba(16, 185, 129, 0.4);
+            --emerald-solid: #10b981;
+            
+            --amber-glow: rgba(245, 158, 11, 0.4);
+            --amber-solid: #f59e0b;
+            
+            --rose-glow: rgba(244, 63, 94, 0.4);
+            --rose-solid: #f43f5e;
+            
+            --font-display: 'Outfit', sans-serif;
+            --font-sans: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+            font-family: var(--font-sans);
+            color: #e2e8f0;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        h1, h2, h3, .font-display {
+            font-family: var(--font-display);
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(8, 3, 18, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(168, 85, 247, 0.3);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(168, 85, 247, 0.6);
+        }
+
+        /* Glassmorphism Panel */
+        .glass-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 1rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-panel:hover {
+            border-color: var(--panel-border-hover);
+            box-shadow: 0 8px 32px 0 rgba(168, 85, 247, 0.1);
+        }
+
+        /* Neon Glows */
+        .glow-purple {
+            box-shadow: 0 0 15px var(--purple-glow);
+        }
+        .glow-emerald {
+            box-shadow: 0 0 15px var(--emerald-glow);
+        }
+        .glow-amber {
+            box-shadow: 0 0 15px var(--amber-glow);
+        }
+        .glow-rose {
+            box-shadow: 0 0 15px var(--rose-glow);
+        }
+
+        /* Card Hover Scale */
         .metric-card {
-            @apply bg-white rounded-xl shadow-md p-6 flex flex-col justify-between transition-transform transform hover:scale-105;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .metric-card:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Pulse Animations */
+        .pulse-green {
+            animation: pulse-green-glow 2s infinite;
+        }
+        @keyframes pulse-green-glow {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        .pulse-purple {
+            animation: pulse-purple-glow 2.5s infinite;
+        }
+        @keyframes pulse-purple-glow {
+            0% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.6); }
+            70% { box-shadow: 0 0 0 10px rgba(168, 85, 247, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
+        }
+
+        /* SVG Map Styling */
+        .store-map-svg {
+            width: 100%;
+            height: 100%;
+            border-radius: 0.75rem;
+            background: rgba(10, 5, 20, 0.8);
+        }
+        .zone-polygon {
+            stroke-width: 2;
+            transition: all 0.4s ease;
+            cursor: pointer;
+        }
+        .zone-polygon:hover {
+            stroke-width: 3.5;
+            filter: drop-shadow(0px 0px 8px rgba(168, 85, 247, 0.8));
+        }
+        .zone-label {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 11px;
+            pointer-events: none;
+            fill: #ffffff;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            letter-spacing: 0.05em;
+        }
+        .zone-sub-label {
+            font-family: var(--font-sans);
+            font-size: 8px;
+            pointer-events: none;
+            fill: rgba(226, 232, 240, 0.7);
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        /* Anomaly alert pulse */
+        @keyframes alert-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .animate-alert {
+            animation: alert-pulse 1.5s infinite;
+        }
+
+        /* Funnel Progress styling */
+        .funnel-bar-fill {
+            transition: width 1s ease-out;
+            background: linear-gradient(90deg, #7e22ce, #a855f7);
         }
     </style>
 </head>
-<body class="bg-gray-50 font-sans text-gray-900 min-h-screen">
-    <nav class="bg-purple-700 text-white shadow-lg p-4 sticky top-0 z-50">
-        <div class="container mx-auto flex justify-between items-center">
-            <div class="flex items-center space-x-3">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-                <h1 class="text-2xl font-bold tracking-wide">Purplle AI Store Intelligence</h1>
+<body class="p-4 md:p-6 min-h-screen flex flex-col justify-between">
+    <!-- Navbar / Header -->
+    <header class="glass-panel p-4 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div class="flex items-center space-x-3">
+            <div class="p-2.5 bg-purple-600/20 border border-purple-500/40 rounded-xl pulse-purple flex items-center justify-center">
+                <svg class="w-7 h-7 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
             </div>
-            <div class="text-sm font-medium bg-purple-800 py-1 px-3 rounded-full flex items-center space-x-2">
-                <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-                <span id="store-id-display">store_1</span>
+            <div>
+                <h1 class="text-xl md:text-2xl font-bold tracking-tight bg-gradient-to-r from-purple-400 to-indigo-300 bg-clip-text text-transparent">Purplle AI Store Intelligence</h1>
+                <p class="text-xs text-slate-400/80">Real-Time Computer Vision & POS Correlation Pipeline</p>
             </div>
         </div>
-    </nav>
-
-    <main class="container mx-auto p-6 space-y-6">
-        <!-- Live Metrics Top Row -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div class="metric-card">
-                <h2 class="text-sm uppercase text-gray-500 font-semibold tracking-wider">Total Visitors</h2>
-                <div class="mt-2 flex items-baseline">
-                    <span id="val-total-visitors" class="text-4xl font-extrabold text-gray-900">0</span>
+        <div class="flex flex-wrap items-center gap-3">
+            <!-- Store Selector -->
+            <div class="flex flex-col">
+                <label class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Select Store</label>
+                <div class="relative">
+                    <select id="store-selector" class="appearance-none bg-slate-900/80 border border-purple-500/30 text-purple-300 text-sm font-semibold rounded-lg px-4 py-1.5 pr-8 focus:outline-none focus:border-purple-500 cursor-pointer">
+                        <option value="purplle_brigade_road" selected>Brigade Road (ST1008)</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-purple-400">
+                        <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                    </div>
                 </div>
             </div>
-            <div class="metric-card border-l-4 border-purple-500">
-                <h2 class="text-sm uppercase text-gray-500 font-semibold tracking-wider">Conversion Rate</h2>
-                <div class="mt-2 flex items-baseline">
-                    <span id="val-conversion-rate" class="text-4xl font-extrabold text-purple-600">0.0%</span>
-                </div>
-            </div>
-            <div class="metric-card">
-                <h2 class="text-sm uppercase text-gray-500 font-semibold tracking-wider">Avg Dwell Time</h2>
-                <div class="mt-2 flex items-baseline">
-                    <span id="val-avg-dwell" class="text-4xl font-extrabold text-gray-900">0s</span>
-                </div>
-            </div>
-            <div class="metric-card">
-                <h2 class="text-sm uppercase text-gray-500 font-semibold tracking-wider">Avg Queue Depth</h2>
-                <div class="mt-2 flex items-baseline">
-                    <span id="val-queue-depth" class="text-4xl font-extrabold text-gray-900">0</span>
+            <!-- Sync / Pipeline Health -->
+            <div class="flex flex-col">
+                <label class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold mb-1">System Health</label>
+                <div id="system-health-badge" class="flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold px-3 py-1.5 rounded-lg">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 pulse-green"></span>
+                    <span id="health-text">PIPELINE ONLINE</span>
                 </div>
             </div>
         </div>
+    </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Funnel Chart -->
-            <div class="bg-white rounded-xl shadow-md p-6 lg:col-span-2">
-                <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Customer Journey Funnel</h2>
-                <div class="h-64 relative w-full">
-                    <canvas id="funnelChart"></canvas>
+    <!-- Main Content -->
+    <main class="grid grid-cols-1 xl:grid-cols-4 gap-6 mb-6 flex-1">
+        <!-- Sidebar Analytics & KPIs (Span 1) -->
+        <div class="xl:col-span-1 flex flex-col gap-6">
+            <!-- Unique Visitors KPI -->
+            <div class="glass-panel metric-card p-5 relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 w-20 h-20 bg-purple-500/10 rounded-full filter blur-xl group-hover:bg-purple-500/25 transition-all"></div>
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs uppercase tracking-wider font-semibold text-slate-400">Total Unique Visitors</p>
+                        <h3 id="val-total-visitors" class="text-4xl font-extrabold mt-2 text-white">0</h3>
+                    </div>
+                    <span class="p-2 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    </span>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>Excludes Store Staff</span>
+                    <span class="text-purple-400 font-semibold" id="visitors-today-date">Today's Batch</span>
                 </div>
             </div>
 
-            <!-- Anomalies Feed -->
-            <div class="bg-white rounded-xl shadow-md p-6 flex flex-col h-full">
-                <div class="flex justify-between items-center mb-4 border-b pb-2">
-                    <h2 class="text-lg font-semibold text-gray-800">Active Anomalies</h2>
-                    <span id="anomaly-badge" class="bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-0.5 rounded-full hidden">Alerts</span>
+            <!-- Conversion Rate KPI -->
+            <div class="glass-panel metric-card p-5 relative overflow-hidden group border-l-4 border-l-purple-500 glow-purple">
+                <div class="absolute -right-4 -top-4 w-20 h-20 bg-purple-600/10 rounded-full filter blur-xl"></div>
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs uppercase tracking-wider font-semibold text-slate-400">Sales Conversion Rate</p>
+                        <h3 id="val-conversion-rate" class="text-4xl font-extrabold mt-2 text-purple-400">0.0%</h3>
+                    </div>
+                    <span class="p-2 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </span>
                 </div>
-                <div id="anomaly-list" class="flex-1 overflow-y-auto space-y-3 max-h-64 pr-2">
-                    <div class="text-gray-400 text-sm italic text-center mt-10" id="no-anomalies">No active anomalies detected.</div>
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>North Star Metric</span>
+                    <span class="text-purple-400 font-semibold">POS Correlated</span>
+                </div>
+            </div>
+
+            <!-- Average Dwell Time KPI -->
+            <div class="glass-panel metric-card p-5 relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 w-20 h-20 bg-emerald-500/10 rounded-full filter blur-xl"></div>
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs uppercase tracking-wider font-semibold text-slate-400">Average Dwell Time</p>
+                        <h3 id="val-avg-dwell" class="text-4xl font-extrabold mt-2 text-white">0s</h3>
+                    </div>
+                    <span class="p-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </span>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>Zone Visit Duration</span>
+                    <span class="text-emerald-400 font-semibold">Active Sessions</span>
+                </div>
+            </div>
+
+            <!-- Queue Depth KPI -->
+            <div class="glass-panel metric-card p-5 relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 w-20 h-20 bg-amber-500/10 rounded-full filter blur-xl"></div>
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs uppercase tracking-wider font-semibold text-slate-400">Queue Depth / Abandon</p>
+                        <h3 id="val-queue-depth" class="text-4xl font-extrabold mt-2 text-white">0 / 0%</h3>
+                    </div>
+                    <span class="p-2 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    </span>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>Checkout Queue Stats</span>
+                    <span class="text-amber-400 font-semibold" id="queue-abandonment-val">0% abandon</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2D Interactive Layout Plan (Span 2) -->
+        <div class="xl:col-span-2 flex flex-col gap-4">
+            <div class="glass-panel p-5 flex-1 flex flex-col min-h-[450px]">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-200">Interactive Store Floor Plan</h2>
+                        <p class="text-xs text-slate-400">Dynamic 2D heat-map scaled from JSON layout boundary markers</p>
+                    </div>
+                    <div class="flex items-center space-x-2 text-xs bg-slate-900/60 px-3 py-1.5 border border-purple-500/20 rounded-lg">
+                        <span class="w-2.5 h-2.5 bg-purple-500/80 rounded-full"></span>
+                        <span class="text-slate-300">Live Traffic Intensity</span>
+                    </div>
+                </div>
+                
+                <!-- Floor map SVG Container -->
+                <div class="flex-1 relative border border-slate-800/60 rounded-xl overflow-hidden shadow-inner flex items-center justify-center">
+                    <svg id="store-layout-svg" viewBox="0 0 400 400" class="store-map-svg">
+                        <!-- Polygons will be drawn dynamically in JS -->
+                        <defs>
+                            <!-- Radial Gradients for Heat Overlay -->
+                            <radialGradient id="heat-skincare" cx="25%" cy="62%">
+                                <stop offset="0%" stop-color="rgba(168, 85, 247, 0.45)" />
+                                <stop offset="100%" stop-color="rgba(168, 85, 247, 0.05)" />
+                            </radialGradient>
+                            <radialGradient id="heat-billing" cx="75%" cy="50%">
+                                <stop offset="0%" stop-color="rgba(168, 85, 247, 0.45)" />
+                                <stop offset="100%" stop-color="rgba(168, 85, 247, 0.05)" />
+                            </radialGradient>
+                            <pattern id="grid-pattern" width="20" height="20" patternUnits="userSpaceOnUse">
+                                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(168, 85, 247, 0.04)" stroke-width="1"/>
+                            </pattern>
+                        </defs>
+                        <!-- Grid overlay background -->
+                        <rect width="100%" height="100%" fill="url(#grid-pattern)" />
+                    </svg>
+                    <!-- Layout Tooltip -->
+                    <div id="layout-tooltip" class="absolute hidden bg-slate-950/95 border border-purple-500/50 text-white rounded-lg p-2.5 shadow-xl text-xs pointer-events-none z-10">
+                        <p id="tooltip-title" class="font-bold text-purple-400"></p>
+                        <p id="tooltip-visits" class="mt-1"></p>
+                        <p id="tooltip-dwell"></p>
+                    </div>
+                </div>
+
+                <!-- Color legend and details -->
+                <div class="grid grid-cols-4 gap-2 mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-center text-slate-400">
+                    <div class="flex items-center justify-center space-x-1.5">
+                        <span class="w-3 h-3 bg-purple-900/30 border border-purple-500/30 rounded"></span>
+                        <span>0-25% Traffic</span>
+                    </div>
+                    <div class="flex items-center justify-center space-x-1.5">
+                        <span class="w-3 h-3 bg-purple-700/40 border border-purple-500/50 rounded"></span>
+                        <span>25-50% Traffic</span>
+                    </div>
+                    <div class="flex items-center justify-center space-x-1.5">
+                        <span class="w-3 h-3 bg-purple-500/60 border border-purple-400/80 rounded"></span>
+                        <span>50-75% Traffic</span>
+                    </div>
+                    <div class="flex items-center justify-center space-x-1.5">
+                        <span class="w-3 h-3 bg-fuchsia-500 border border-fuchsia-300 rounded shadow-[0_0_8px_rgba(240,78,255,0.7)] animate-alert"></span>
+                        <span>75-100% Peak</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Funnel & Zone Engagement Charts (Span 1) -->
+        <div class="xl:col-span-1 flex flex-col gap-6">
+            <!-- Customer Journey Funnel -->
+            <div class="glass-panel p-5 flex-1 flex flex-col justify-between">
+                <div>
+                    <h2 class="text-base font-bold text-slate-200 mb-1">Customer Journey Funnel</h2>
+                    <p class="text-xs text-slate-400 mb-4">Drop-off sequence map from clip tracking</p>
+                </div>
+                
+                <div id="funnel-container" class="space-y-4 my-auto">
+                    <!-- Funnel steps generated dynamically in JS -->
+                    <div class="text-slate-500 text-xs italic text-center py-10">Loading funnel metrics...</div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-slate-800/80 text-[10px] text-slate-400/80 flex items-center justify-between">
+                    <span>* Unit represents distinct sessions</span>
+                    <span>100% Entry baseline</span>
+                </div>
+            </div>
+
+            <!-- Zone Dwell Engagement Chart -->
+            <div class="glass-panel p-5 h-[230px] flex flex-col justify-between">
+                <div>
+                    <h2 class="text-base font-bold text-slate-200 mb-1">Dwell Time Comparison</h2>
+                    <p class="text-xs text-slate-400 mb-3">Avg dwell seconds by store zone</p>
+                </div>
+                <div class="flex-1 relative w-full h-[140px]">
+                    <canvas id="dwellChart"></canvas>
                 </div>
             </div>
         </div>
     </main>
 
+    <!-- Bottom Panels: Active Anomalies & Health Stats -->
+    <footer class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Active Anomalies Alert Feed (Span 2) -->
+        <div class="lg:col-span-2 glass-panel p-5 flex flex-col">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-800/80 pb-2">
+                <div class="flex items-center space-x-2">
+                    <h2 class="text-base font-bold text-slate-200">Active Operational Anomalies</h2>
+                    <span id="anomaly-counter-badge" class="bg-red-500/20 text-red-400 border border-red-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full hidden">0 Alerts</span>
+                </div>
+                <span class="text-xs text-slate-400 italic">Self-evaluating threshold limits</span>
+            </div>
+            
+            <div id="anomaly-list" class="grid grid-cols-1 md:grid-cols-2 gap-3 min-h-[100px] max-h-[160px] overflow-y-auto pr-1">
+                <div class="col-span-2 text-slate-500 text-xs italic text-center py-6" id="no-anomalies">
+                    No operational anomalies detected in this store session.
+                </div>
+            </div>
+        </div>
+
+        <!-- System & Ingestion Details (Span 1) -->
+        <div class="glass-panel p-5 flex flex-col justify-between">
+            <div class="border-b border-slate-800/80 pb-2 mb-3">
+                <h2 class="text-base font-bold text-slate-200">System Monitoring Feed</h2>
+            </div>
+            
+            <div class="space-y-3 text-xs flex-1 flex flex-col justify-center">
+                <div class="flex justify-between items-center bg-slate-950/40 p-2 rounded-lg border border-slate-800/60">
+                    <span class="text-slate-400">Selected Store ID:</span>
+                    <span id="sys-store-id" class="font-mono font-bold text-purple-300">purplle_brigade_road</span>
+                </div>
+                <div class="flex justify-between items-center bg-slate-950/40 p-2 rounded-lg border border-slate-800/60">
+                    <span class="text-slate-400">Last Received Event:</span>
+                    <span id="sys-last-event" class="font-mono text-slate-300">--:--:--</span>
+                </div>
+                <div class="flex justify-between items-center bg-slate-950/40 p-2 rounded-lg border border-slate-800/60">
+                    <span class="text-slate-400">Stream Sync Lag:</span>
+                    <span id="sys-lag" class="font-mono text-emerald-400 font-bold">0s</span>
+                </div>
+            </div>
+
+            <div class="mt-3 pt-3 border-t border-slate-800/80 text-[10px] text-slate-400/60 flex justify-between">
+                <span>Refreshes every 2.0s</span>
+                <span id="sys-time">22:30:00 UTC</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Logic Script -->
     <script>
-        const STORE_ID = 'purplle_brigade_road';
-        document.getElementById('store-id-display').textContent = STORE_ID;
-
-        // Initialize Chart.js
-        const ctx = document.getElementById('funnelChart').getContext('2d');
-        const funnelChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Entered', 'Browsed', 'Queued', 'Purchased'],
-                datasets: [{
-                    label: 'Visitor Count',
-                    data: [0, 0, 0, 0],
-                    backgroundColor: [
-                        'rgba(147, 51, 234, 0.8)',  // Purple 600
-                        'rgba(168, 85, 247, 0.8)',  // Purple 500
-                        'rgba(192, 132, 252, 0.8)',  // Purple 400
-                        'rgba(216, 180, 254, 0.8)'   // Purple 300
-                    ],
-                    borderColor: [
-                        'rgb(126, 34, 206)',
-                        'rgb(147, 51, 234)',
-                        'rgb(168, 85, 247)',
-                        'rgb(192, 132, 252)'
-                    ],
-                    borderWidth: 1,
-                    borderRadius: 4
-                }]
+        // Zone configuration matching store_layout.json
+        const storeZones = {
+            "ENTRY_DOOR": {
+                poly: [[0, 0], [200, 0], [200, 100], [0, 100]],
+                label: "Entry",
+                color: "purple"
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { borderDash: [2, 4], color: '#e5e7eb' }
-                    },
-                    x: {
-                        grid: { display: false }
-                    }
-                },
-                plugins: {
-                    legend: { display: false }
-                }
+            "SKINCARE": {
+                poly: [[0, 100], [200, 100], [200, 400], [0, 400]],
+                label: "Skincare Zone",
+                color: "pink"
+            },
+            "BILLING": {
+                poly: [[200, 0], [400, 0], [400, 400], [200, 400]],
+                label: "Billing Area",
+                color: "indigo"
+            },
+            "STAFF_ONLY": {
+                poly: [[350, 0], [400, 0], [400, 100], [350, 100]],
+                label: "Staff Only",
+                color: "gray"
             }
-        });
+        };
 
-        async function fetchDashboardData() {
+        let activeStoreId = 'purplle_brigade_road';
+        let dwellChart = null;
+
+        // Initialize dynamic layout polygons
+        function initStoreLayout() {
+            const svg = document.getElementById('store-layout-svg');
+            
+            // Clear existing polygons (keep defs and background grid)
+            const paths = svg.querySelectorAll('.zone-polygon, .zone-label, .zone-sub-label');
+            paths.forEach(p => p.remove());
+
+            // Build new zones
+            Object.keys(storeZones).forEach(zoneId => {
+                const config = storeZones[zoneId];
+                const pointsStr = config.poly.map(pt => pt.join(',')).join(' ');
+                
+                // Create SVG Polygon element
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                polygon.setAttribute('points', pointsStr);
+                polygon.setAttribute('id', `poly-${zoneId}`);
+                polygon.setAttribute('class', 'zone-polygon');
+                
+                // Apply base styles depending on zone type
+                if (zoneId === 'STAFF_ONLY') {
+                    polygon.setAttribute('fill', 'rgba(100, 116, 139, 0.15)');
+                    polygon.setAttribute('stroke', 'rgba(100, 116, 139, 0.4)');
+                } else {
+                    polygon.setAttribute('fill', 'rgba(168, 85, 247, 0.04)');
+                    polygon.setAttribute('stroke', 'rgba(168, 85, 247, 0.25)');
+                }
+
+                // Add tooltips on hover
+                polygon.addEventListener('mousemove', (e) => showTooltip(e, zoneId));
+                polygon.addEventListener('mouseleave', hideTooltip);
+
+                svg.appendChild(polygon);
+
+                // Add text label anchor at center of bounding box
+                const center = getPolygonCenter(config.poly);
+                
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', center.x);
+                label.setAttribute('y', center.y - 4);
+                label.setAttribute('class', 'zone-label');
+                label.textContent = config.label;
+                svg.appendChild(label);
+
+                const subLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                subLabel.setAttribute('x', center.x);
+                subLabel.setAttribute('y', center.y + 10);
+                subLabel.setAttribute('class', 'zone-sub-label');
+                subLabel.setAttribute('id', `sublabel-${zoneId}`);
+                subLabel.textContent = "0 visits";
+                svg.appendChild(subLabel);
+            });
+        }
+
+        // Helper to compute centroid/bounding box center for polygons
+        function getPolygonCenter(points) {
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            points.forEach(pt => {
+                if (pt[0] < minX) minX = pt[0];
+                if (pt[0] > maxX) maxX = pt[0];
+                if (pt[1] < minY) minY = pt[1];
+                if (pt[1] > maxY) maxY = pt[1];
+            });
+            return {
+                x: (minX + maxX) / 2,
+                y: (minY + maxY) / 2
+            };
+        }
+
+        // Heatmap Cache
+        let heatmapDataCache = {};
+
+        function showTooltip(e, zoneId) {
+            const tooltip = document.getElementById('layout-tooltip');
+            const zoneInfo = storeZones[zoneId];
+            const data = heatmapDataCache[zoneId] || { frequency: 0, avgDwell: 0 };
+            
+            document.getElementById('tooltip-title').textContent = zoneInfo.label;
+            document.getElementById('tooltip-visits').innerHTML = `Traffic Intensity: <span class="font-bold text-white">${data.frequency.toFixed(0)}%</span>`;
+            document.getElementById('tooltip-dwell').innerHTML = `Avg Zone Dwell: <span class="font-bold text-emerald-400">${data.avgDwell.toFixed(1)}s</span>`;
+
+            // Position tooltip near cursor relative to the SVG container
+            const svgRect = document.getElementById('store-layout-svg').getBoundingClientRect();
+            tooltip.style.left = `${e.clientX - svgRect.left + 15}px`;
+            tooltip.style.top = `${e.clientY - svgRect.top + 15}px`;
+            tooltip.classList.remove('hidden');
+        }
+
+        function hideTooltip() {
+            document.getElementById('layout-tooltip').classList.add('hidden');
+        }
+
+        // Initialize Chart.js Comparison Dwell Chart
+        function initDwellChart() {
+            const ctx = document.getElementById('dwellChart').getContext('2d');
+            dwellChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Entry', 'Skincare', 'Billing', 'Staff Only'],
+                    datasets: [{
+                        label: 'Avg Dwell Seconds',
+                        data: [0, 0, 0, 0],
+                        backgroundColor: 'rgba(168, 85, 247, 0.45)',
+                        borderColor: '#a855f7',
+                        borderWidth: 1.5,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { borderDash: [2, 4], color: 'rgba(255, 255, 255, 0.07)' },
+                            ticks: { color: 'rgba(226, 232, 240, 0.6)', font: { size: 9 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: 'rgba(226, 232, 240, 0.7)', font: { size: 10 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // Poll and update metrics
+        async function updateDashboardData() {
             try {
-                // Fetch Metrics
-                const metricsRes = await fetch(`/stores/${STORE_ID}/metrics`);
+                // 1. Fetch Metrics
+                const metricsRes = await fetch(`/stores/${activeStoreId}/metrics`);
                 if (metricsRes.ok) {
                     const metrics = await metricsRes.json();
                     document.getElementById('val-total-visitors').textContent = metrics.unique_visitors_today || 0;
                     document.getElementById('val-conversion-rate').textContent = ((metrics.conversion_rate || 0) * 100).toFixed(1) + '%';
                     
-                    const avgDwellSeconds = Math.round((metrics.avg_dwell_ms || 0) / 1000);
-                    document.getElementById('val-avg-dwell').textContent = avgDwellSeconds + 's';
+                    const avgDwellSec = (metrics.avg_dwell_ms || 0) / 1000;
+                    document.getElementById('val-avg-dwell').textContent = avgDwellSec.toFixed(1) + 's';
                     
-                    document.getElementById('val-queue-depth').textContent = (metrics.current_queue_depth || 0);
-                }
+                    const queueDepth = metrics.current_queue_depth || 0;
+                    const abandonPct = ((metrics.abandonment_rate || 0) * 100).toFixed(0);
+                    document.getElementById('val-queue-depth').textContent = `${queueDepth} / ${abandonPct}%`;
+                    document.getElementById('queue-abandonment-val').textContent = `${abandonPct}% abandon rate`;
 
-                // Fetch Funnel
-                const funnelRes = await fetch(`/stores/${STORE_ID}/funnel`);
-                if (funnelRes.ok) {
-                    const funnelData = await funnelRes.json();
-                    const funnelMap = {};
-                    if (funnelData.funnel && Array.isArray(funnelData.funnel)) {
-                        funnelData.funnel.forEach(item => {
-                            funnelMap[item.step] = item.count;
-                        });
+                    // Update chart with specific zone values
+                    if (dwellChart) {
+                        const zoneDwells = metrics.avg_dwell_per_zone || {};
+                        dwellChart.data.datasets[0].data = [
+                            Math.round((zoneDwells['ENTRY_DOOR'] || 0) / 1000),
+                            Math.round((zoneDwells['SKINCARE'] || 0) / 1000),
+                            Math.round((zoneDwells['BILLING'] || 0) / 1000),
+                            Math.round((zoneDwells['STAFF_ONLY'] || 0) / 1000)
+                        ];
+                        dwellChart.update();
                     }
-                    funnelChart.data.datasets[0].data = [
-                        funnelMap['Entered'] || 0,
-                        funnelMap['Browsed'] || 0,
-                        funnelMap['Queued'] || 0,
-                        funnelMap['Purchased'] || 0
-                    ];
-                    funnelChart.update();
                 }
 
-                // Fetch Anomalies
-                const anomaliesRes = await fetch(`/stores/${STORE_ID}/anomalies`);
+                // 2. Fetch Funnel (Custom CSS Progress render)
+                const funnelRes = await fetch(`/stores/${activeStoreId}/funnel`);
+                if (funnelRes.ok) {
+                    const data = await funnelRes.json();
+                    renderFunnel(data.funnel || []);
+                }
+
+                // 3. Fetch Heatmap
+                const heatmapRes = await fetch(`/stores/${activeStoreId}/heatmap`);
+                if (heatmapRes.ok) {
+                    const data = await heatmapRes.json();
+                    updateHeatmapPolygons(data.zones || []);
+                }
+
+                // 4. Fetch Anomalies
+                const anomaliesRes = await fetch(`/stores/${activeStoreId}/anomalies`);
                 if (anomaliesRes.ok) {
                     const data = await anomaliesRes.json();
-                    updateAnomaliesList(data.active_anomalies || []);
+                    updateAnomalies(data.active_anomalies || []);
                 }
 
+                // 5. Fetch Health (System Logs)
+                const healthRes = await fetch('/health');
+                if (healthRes.ok) {
+                    const health = await healthRes.json();
+                    updateSystemHealth(health);
+                }
+
+                // Update system clock log
+                document.getElementById('sys-time').textContent = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+
             } catch (error) {
-                console.error("Error fetching dashboard data:", error);
+                console.error("Dashboard poll fetch error: ", error);
             }
         }
 
-        function updateAnomaliesList(anomalies) {
-            const listEl = document.getElementById('anomaly-list');
-            const noAnomaliesEl = document.getElementById('no-anomalies');
-            const badgeEl = document.getElementById('anomaly-badge');
+        // Render customer journey funnel sequence
+        function renderFunnel(steps) {
+            const container = document.getElementById('funnel-container');
+            container.innerHTML = '';
 
-            if (anomalies.length === 0) {
-                listEl.innerHTML = '';
-                listEl.appendChild(noAnomaliesEl);
-                noAnomaliesEl.style.display = 'block';
-                badgeEl.classList.add('hidden');
+            if (steps.length === 0) {
+                container.innerHTML = '<div class="text-slate-500 text-xs italic text-center py-6">No funnel entries</div>';
                 return;
             }
 
-            noAnomaliesEl.style.display = 'none';
-            badgeEl.classList.remove('hidden');
-            badgeEl.textContent = `${anomalies.length} Alerts`;
-            
-            // Rebuild list
-            listEl.innerHTML = '';
-            anomalies.forEach(anomaly => {
-                const item = document.createElement('div');
-                item.className = 'p-3 rounded-lg border-l-4 bg-gray-50 ' + getAnomalyColorClass(anomaly.anomaly_type);
+            // Find baseline (typically step 0: Entered)
+            const maxVal = steps[0].count || 1;
+
+            steps.forEach((step, idx) => {
+                const fillPct = maxVal > 0 ? (step.count / maxVal) * 100 : 0;
                 
-                const time = new Date(anomaly.timestamp).toLocaleTimeString();
+                const stepRow = document.createElement('div');
+                stepRow.className = 'space-y-1';
                 
-                item.innerHTML = `
-                    <div class="flex justify-between items-start">
-                        <span class="font-bold text-sm text-gray-800">${anomaly.anomaly_type.replace('_', ' ')}</span>
-                        <span class="text-xs text-gray-500">${time}</span>
+                // Set step title & details
+                let detailsLabel = `${step.count} visitors`;
+                if (step.drop_off_pct !== undefined && step.drop_off_pct > 0 && idx > 0) {
+                    detailsLabel += ` <span class="text-rose-400 font-bold ml-1">(-${step.drop_off_pct.toFixed(0)}%)</span>`;
+                }
+
+                stepRow.innerHTML = `
+                    <div class="flex justify-between text-xs font-semibold">
+                        <span class="text-slate-300">${step.step}</span>
+                        <span class="text-slate-400 text-[11px]">${detailsLabel}</span>
                     </div>
-                    <p class="text-xs text-gray-600 mt-1">${anomaly.description}</p>
+                    <div class="w-full bg-slate-950/60 rounded-full h-3.5 border border-slate-800 overflow-hidden p-0.5 flex">
+                        <div class="funnel-bar-fill h-full rounded-full" style="width: ${fillPct}%"></div>
+                    </div>
                 `;
-                listEl.appendChild(item);
+                container.appendChild(stepRow);
             });
         }
 
-        function getAnomalyColorClass(type) {
-            if (type.includes('QUEUE')) return 'border-orange-500';
-            if (type.includes('DROP')) return 'border-red-500';
-            if (type.includes('DEAD')) return 'border-yellow-500';
-            return 'border-gray-500';
+        // Color polygons based on traffic
+        function updateHeatmapPolygons(zones) {
+            // Reset cache
+            heatmapDataCache = {};
+            
+            // Clear polygons back to base
+            Object.keys(storeZones).forEach(zId => {
+                const poly = document.getElementById(`poly-${zId}`);
+                const sublabel = document.getElementById(`sublabel-${zId}`);
+                if (poly && zId !== 'STAFF_ONLY') {
+                    poly.setAttribute('fill', 'rgba(168, 85, 247, 0.04)');
+                    poly.setAttribute('stroke', 'rgba(168, 85, 247, 0.25)');
+                }
+                if (sublabel) {
+                    sublabel.textContent = "0 visits";
+                }
+            });
+
+            // Set colors dynamically
+            zones.forEach(zone => {
+                const zId = zone.zone_id;
+                const freq = zone.visit_frequency || 0; // 0 to 100
+                const avgDwellSec = (zone.avg_dwell_ms || 0) / 1000;
+
+                // Cache
+                heatmapDataCache[zId] = { frequency: freq, avgDwell: avgDwellSec };
+
+                const poly = document.getElementById(`poly-${zId}`);
+                const sublabel = document.getElementById(`sublabel-${zId}`);
+
+                if (sublabel) {
+                    sublabel.textContent = `${freq.toFixed(0)}% visits`;
+                }
+
+                if (!poly || zId === 'STAFF_ONLY') return;
+
+                // Determine heat fill opacity
+                let opacity = 0.05 + (freq / 100) * 0.7; // scaled opacity between 0.05 and 0.75
+                
+                // Color ramp: Purple to Fuchsia to Red glow depending on intensity
+                let fillVal = `rgba(168, 85, 247, ${opacity})`;
+                let strokeVal = `rgba(168, 85, 247, 0.55)`;
+
+                if (freq > 75) {
+                    // Hot Peak
+                    fillVal = `rgba(236, 72, 153, ${opacity})`;
+                    strokeVal = `#ec4899`;
+                } else if (freq > 40) {
+                    // Medium
+                    fillVal = `rgba(168, 85, 247, ${opacity})`;
+                    strokeVal = `#c084fc`;
+                }
+
+                poly.setAttribute('fill', fillVal);
+                poly.setAttribute('stroke', strokeVal);
+            });
         }
 
-        // Poll every 2 seconds
-        setInterval(fetchDashboardData, 2000);
+        // Populate anomalies list
+        function updateAnomalies(anomalies) {
+            const list = document.getElementById('anomaly-list');
+            const noAnomalies = document.getElementById('no-anomalies');
+            const counter = document.getElementById('anomaly-counter-badge');
+
+            if (anomalies.length === 0) {
+                list.innerHTML = '';
+                list.appendChild(noAnomalies);
+                noAnomalies.style.display = 'block';
+                counter.classList.add('hidden');
+                return;
+            }
+
+            noAnomalies.style.display = 'none';
+            counter.classList.remove('hidden');
+            counter.textContent = `${anomalies.length} Alerts`;
+
+            list.innerHTML = '';
+            anomalies.forEach(anomaly => {
+                const div = document.createElement('div');
+                
+                // Color codes
+                let borderCol = 'border-amber-500';
+                let bgCol = 'bg-amber-500/10';
+                let textCol = 'text-amber-400';
+                let tagText = 'WARNING';
+
+                if (anomaly.severity === 'CRITICAL' || anomaly.anomaly_type === 'CONVERSION_DROP') {
+                    borderCol = 'border-red-500';
+                    bgCol = 'bg-red-500/10';
+                    textCol = 'text-red-400';
+                    tagText = 'CRITICAL';
+                } else if (anomaly.severity === 'INFO') {
+                    borderCol = 'border-purple-500';
+                    bgCol = 'bg-purple-500/10';
+                    textCol = 'text-purple-400';
+                    tagText = 'INFO';
+                }
+
+                const alertTime = new Date(anomaly.detected_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                div.className = `p-3 rounded-lg border-l-4 ${borderCol} ${bgCol} flex flex-col justify-between space-y-1.5`;
+                div.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] uppercase px-1.5 py-0.5 rounded font-bold bg-slate-900 border border-slate-700 ${textCol}">${tagText}: ${anomaly.anomaly_type.replace('_', ' ')}</span>
+                        <span class="text-[10px] text-slate-500 font-mono">${alertTime}</span>
+                    </div>
+                    <p class="text-xs text-slate-200 font-medium">${anomaly.description}</p>
+                    <div class="text-[10px] bg-slate-950/60 p-1.5 rounded border border-slate-800 text-slate-300">
+                        <span class="text-purple-400 font-semibold">Suggested Action:</span> ${anomaly.suggested_action}
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        // Update health indicators
+        function updateSystemHealth(health) {
+            const hBadge = document.getElementById('system-health-badge');
+            const hText = document.getElementById('health-text');
+            const sysLastEvent = document.getElementById('sys-last-event');
+            const sysLag = document.getElementById('sys-lag');
+            
+            const storeHealth = health.stores[activeStoreId];
+
+            if (health.status === 'healthy' && (!storeHealth || storeHealth.status === 'healthy')) {
+                hBadge.className = "flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold px-3 py-1.5 rounded-lg";
+                hText.textContent = "PIPELINE ONLINE";
+                sysLag.className = "font-mono text-emerald-400 font-bold";
+            } else {
+                hBadge.className = "flex items-center space-x-2 bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-semibold px-3 py-1.5 rounded-lg animate-alert";
+                hText.textContent = storeHealth && storeHealth.warning ? storeHealth.warning : "DEGRADED FEED";
+                sysLag.className = "font-mono text-rose-400 font-bold animate-alert";
+            }
+
+            if (storeHealth) {
+                const lagSec = storeHealth.lag_seconds || 0;
+                sysLag.textContent = `${lagSec.toFixed(1)}s lag`;
+                
+                const timeStr = new Date(storeHealth.last_event_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                sysLastEvent.textContent = timeStr;
+            } else {
+                sysLag.textContent = "N/A";
+                sysLastEvent.textContent = "--:--:--";
+            }
+        }
+
+        // Store selection handler
+        document.getElementById('store-selector').addEventListener('change', (e) => {
+            activeStoreId = e.target.value;
+            document.getElementById('sys-store-id').textContent = activeStoreId;
+            updateDashboardData();
+        });
+
+        // Initialize elements
+        initStoreLayout();
+        initDwellChart();
         
-        // Initial fetch
-        fetchDashboardData();
+        // Initial Fetch
+        updateDashboardData();
+        
+        // 2-second dashboard polling
+        setInterval(updateDashboardData, 2000);
     </script>
 </body>
 </html>
