@@ -1,0 +1,13 @@
+store_id: "purplle_brigade_road"
+ingestion:
+  output_dir: "./data/processed_frames"
+  target_resolution: [640, 640]
+cameras:
+  - camera_id: "cam_1_entrance"
+    source: "./data/raw/CCTV Footage-20260529T160731Z-3-00144614ea/CCTV Footage/CAM 1.mp4"
+    target_fps: 3
+    enabled: true
+  - camera_id: "cam_2_aisle"
+    source: "./data/raw/CCTV Footage-20260529T160731Z-3-00144614ea/CCTV Footage/CAM 2.mp4"
+    target_fps: 3
+    enabled: true

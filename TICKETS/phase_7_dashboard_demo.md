@@ -1,13 +1,13 @@
-# Phase 7: Dashboard & Demo
+# Phase 7: Live Dashboard & Demo (Bonus)
 
 ## Goal
-Build the user interface and system containerization.
+Build a terminal or web UI dashboard to show metrics updating in real-time.
 
 ## Tasks
-- [ ] Develop dashboard (React/Next.js) or setup Grafana:
-  - Live footfall charts.
-  - Floor plan heatmap overlays.
-  - Alert log display.
-  - "Replay" mode.
-- [ ] Create `docker-compose.yml` for stack orchestration (Kafka, DBs, API, Worker).
-- [ ] Final polish, documentation of known limitations and future work.
+- [ ] Run detection pipeline on a clip in real-time or simulated real-time.
+- [ ] Develop dashboard to show at least one store metric updating live as events flow in.
+- [ ] Ensure local URL is noted in README.md.
+
+## Documentation
+- [ ] Ensure `DESIGN.md` contains the "AI-Assisted Decisions" section.
+- [ ] Ensure `CHOICES.md` contains reasoning for: (1) detection model, (2) event schema design, (3) one API architecture choice.

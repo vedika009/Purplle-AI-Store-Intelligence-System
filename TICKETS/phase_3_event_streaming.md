@@ -1,15 +1,13 @@
-# Phase 3: Event Streaming
+# Phase 3: Event Schema & Streaming
 
 ## Goal
-Establish a robust, scalable event backbone and stream processing.
+Define the exact event schema and implement the mechanism to stream/batch these events from the detection layer to the API.
 
 ## Tasks
-- [ ] Configure Kafka (or Redpanda) as the event bus.
-- [ ] Define event schema (JSON/Avro) for: `store.events.entry`, `store.events.dwell`, `store.events.queue`, `store.events.anomaly`.
-- [ ] Implement stream processing (using Faust or Flink):
-  - Tumbling windows (5-minute buckets) for footfall.
-  - Session windows for dwell-time aggregation.
-  - Sliding windows for rolling averages.
+- [ ] Define Pydantic models for the exact mandated event schema.
+- [ ] Ensure event types include all 8 required events.
+- [ ] Configure the event stream/batching from detection pipeline (can be direct API calls or via a bus like Kafka/Redis queue if decoupled).
+- [ ] Support correlation of generated events with POS transactions (`pos_transactions.csv`) for billing queue abandonment logic.
 
 ## Documentation
-- [ ] Document justification for Kafka choice (Replay capability).
+- [ ] Document event schema design rationale in `CHOICES.md`.
