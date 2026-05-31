@@ -1,3 +1,6 @@
+# PROMPT: "Write pytest test cases for the config parsing and image saving writer in a video ingestion pipeline using cv2 and numpy."
+# CHANGES MADE: "Adjusted dummy frame sizes and specific path checking to match our application's exact output schema requirements."
+
 import os
 import cv2
 import numpy as np

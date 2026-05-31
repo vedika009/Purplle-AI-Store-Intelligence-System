@@ -11,7 +11,7 @@ Implement reliable, low-latency frame extraction from RTSP/video sources for foo
 - [x] Develop object store writer (key structure: `{store_id}/{camera_id}/{timestamp}.jpg`).
 
 ## Testing Requirements
-- [ ] Add `# PROMPT:` and `# CHANGES MADE:` blocks at the top of all test files (Part D AI Engineering requirement).
+- [x] Add `# PROMPT:` and `# CHANGES MADE:` blocks at the top of all test files (Part D AI Engineering requirement).
 
 ## Documentation
 - [x] Document reasoning for 1-5 FPS sampling rate and its impact on performance/accuracy.
